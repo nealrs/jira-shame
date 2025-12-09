@@ -109,7 +109,7 @@ app.get('/', async (req, res) => {
     const searchResponse = await jiraClient.post(`/rest/api/3/search/jql`, {
       jql: `key in (${issueKeys.join(',')})`,
       maxResults: 100,
-      fields: ['summary', 'status', 'assignee', 'created']
+      fields: ['summary', 'status', 'assignee', 'created', 'issuetype']
     });
     
     // Then fetch changelog, remote links (for PR info), and development info for each issue
@@ -160,36 +160,77 @@ app.get('/', async (req, res) => {
       // Safely access changelog.histories with a fallback
       const history = issue.changelog?.histories || [];
       
-      // LOGIC CHANGE: Find the EARLIEST time it entered the current status
-      // and assume it has been "stuck" there effectively since then.
+      // Calculate TOTAL time spent in current status by summing all periods
+      // Only count time when ticket was actually in the current status, not from ticket creation
       
-      // 1. Default to creation date (in case it was created directly in this status)
-      let firstEnteredTime = moment(issue.fields.created);
-
-      // 2. Scan history to find transitions TO the current status
-      // We look at ALL history items.
-      const transitionsToCurrent = [];
-
+      // Build a timeline of all status transitions from changelog
+      const statusTransitions = [];
+      
       if (history && Array.isArray(history)) {
         history.forEach(record => {
           if (record.items && Array.isArray(record.items)) {
             record.items.forEach(item => {
-              if (item.field === 'status' && item.toString === currentStatus) {
-                transitionsToCurrent.push(moment(record.created));
+              if (item.field === 'status') {
+                statusTransitions.push({
+                  date: moment(record.created),
+                  fromStatus: item.fromString,
+                  toStatus: item.toString
+                });
               }
             });
           }
         });
       }
-
-      // 3. If we found transitions, pick the earliest one (Minimum Date)
-      if (transitionsToCurrent.length > 0) {
-        // Sort ascending to get the oldest date first
-        transitionsToCurrent.sort((a, b) => a - b);
-        firstEnteredTime = transitionsToCurrent[0];
+      
+      // Sort transitions by date (oldest first)
+      statusTransitions.sort((a, b) => a.date.valueOf() - b.date.valueOf());
+      
+      // Calculate total days in current status
+      let totalDaysInCurrentStatus = 0;
+      const now = moment();
+      let enteredCurrentStatusAt = null;
+      
+      // Check if ticket was created in current status (no transitions, or first transition is away from current)
+      // We'll determine this by checking if there are no transitions, or if the first transition shows leaving current status
+      let wasCreatedInCurrentStatus = false;
+      if (statusTransitions.length === 0) {
+        // No transitions means it's been in current status since creation
+        wasCreatedInCurrentStatus = true;
+        enteredCurrentStatusAt = moment(issue.fields.created);
+      } else {
+        // Check if first transition is away from current status (meaning it started in current)
+        const firstTransition = statusTransitions[0];
+        if (firstTransition.fromStatus === currentStatus) {
+          wasCreatedInCurrentStatus = true;
+          enteredCurrentStatusAt = moment(issue.fields.created);
+        }
       }
-
-      const daysStuck = moment().diff(firstEnteredTime, 'days');
+      
+      // Walk through all transitions
+      for (const transition of statusTransitions) {
+        const { fromStatus, toStatus, date } = transition;
+        
+        // If transitioning TO current status, start counting
+        if (toStatus === currentStatus && fromStatus !== currentStatus) {
+          enteredCurrentStatusAt = date;
+        }
+        // If transitioning AWAY FROM current status, add the period and stop counting
+        else if (fromStatus === currentStatus && toStatus !== currentStatus) {
+          if (enteredCurrentStatusAt !== null) {
+            const daysInStatus = date.diff(enteredCurrentStatusAt, 'days');
+            totalDaysInCurrentStatus += daysInStatus;
+            enteredCurrentStatusAt = null;
+          }
+        }
+      }
+      
+      // If still in current status (enteredCurrentStatusAt is not null), add time from last entry to now
+      if (enteredCurrentStatusAt !== null) {
+        const daysInStatus = now.diff(enteredCurrentStatusAt, 'days');
+        totalDaysInCurrentStatus += daysInStatus;
+      }
+      
+      const daysStuck = totalDaysInCurrentStatus;
 
       // Extract PR information from remote links and development info
       const prs = [];
@@ -260,6 +301,10 @@ app.get('/', async (req, res) => {
         });
       }
 
+      // Get issue type
+      const issueType = issue.fields.issuetype?.name || 'Task';
+      const issueTypeLower = issueType.toLowerCase();
+
       return {
         key: issue.key,
         summary: issue.fields.summary,
@@ -267,7 +312,8 @@ app.get('/', async (req, res) => {
         assignee: issue.fields.assignee ? issue.fields.assignee.displayName : 'Unassigned',
         days: daysStuck,
         link: `https://${JIRA_HOST}/browse/${issue.key}`,
-        prs: prs
+        prs: prs,
+        issueType: issueTypeLower
       };
     })
     .filter(issue => issue.days >= 7); // Only show issues that have been in status for at least 7 days
@@ -315,6 +361,17 @@ app.get('/', async (req, res) => {
       grouped[key].sort((a, b) => b.days - a.days);
     });
 
+    // Helper function to get issue type icon
+    const getIssueTypeIcon = (issueType) => {
+      const icons = {
+        'bug': '🐞',
+        'story': '🔖',
+        'task': '✓',
+        'spike': '🧠'
+      };
+      return icons[issueType] || '✓';
+    };
+
     // 7. Render HTML
     let html = `
       <html>
@@ -358,6 +415,11 @@ app.get('/', async (req, res) => {
           .pr-review-status { font-size: 10px; color: #6B778C; margin-left: 4px; }
           .pr-review-status.needs-review { color: #BF2600; font-weight: 500; }
           .pr-review-status.approved { color: #006644; }
+          .issue-type-icon { display: inline-block; margin-right: 8px; font-size: 16px; vertical-align: middle; }
+          .issue-type-icon.bug { color: #E53E3E; }
+          .issue-type-icon.story { color: #38A169; }
+          .issue-type-icon.task { color: #3182CE; }
+          .issue-type-icon.spike { color: #805AD5; }
           
           @media (max-width: 1400px) {
             .status-columns { grid-template-columns: repeat(2, 1fr); }
@@ -375,30 +437,30 @@ app.get('/', async (req, res) => {
           </p>
           
           <div class="status-columns">
-            ${TARGET_STATUSES.map(status => {
-              const list = grouped[status] || [];
-              
-              return `
-                <div class="status-group">
-                  <div class="status-header">
-                    <span>${status}</span>
-                    <span>${list.length} tickets</span>
-                  </div>
+          ${TARGET_STATUSES.map(status => {
+            const list = grouped[status] || [];
+            
+            return `
+              <div class="status-group">
+                <div class="status-header">
+                  <span>${status}</span>
+                  <span>${list.length} tickets</span>
+                </div>
                   <div class="status-content">
                     ${list.length === 0 ? '<p style="color: #6B778C; text-align: center; padding: 20px;">No tickets</p>' : list.map(i => {
-                      return `
-                        <div class="ticket">
+                  return `
+                    <div class="ticket">
                           <div class="days-badge ${i.badgeClass || ''}">
-                            <span class="days-count">${i.days}</span>
-                            <span class="days-label">days</span>
-                          </div>
+                        <span class="days-count">${i.days}</span>
+                        <span class="days-label">days</span>
+                      </div>
                           <div class="details">
                             <div>
                               <a href="${i.link}" class="key" target="_blank">${i.key}</a>
                               <span class="summary">${i.summary}</span>
                             </div>
-                            <div class="meta">
-                              <span class="assignee">${i.assignee}</span>
+                        <div class="meta">
+                          <span class="assignee">${i.assignee}</span>
                             </div>
                             ${i.prs && i.prs.length > 0 ? `
                               <div class="pr-info">
@@ -423,11 +485,11 @@ app.get('/', async (req, res) => {
                         </div>
                       `;
                     }).join('')}
-                  </div>
-                </div>
-              `;
-            }).join('')}
-          </div>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
         </div>
       </body>
       </html>
