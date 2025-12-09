@@ -361,6 +361,9 @@ app.get('/', async (req, res) => {
       grouped[key].sort((a, b) => b.days - a.days);
     });
 
+    // Get all unique assignees for the filter
+    const allAssignees = [...new Set(processedIssues.map(issue => issue.assignee))].sort();
+
     // Helper function to get issue type icon
     const getIssueTypeIcon = (issueType) => {
       const icons = {
@@ -420,6 +423,14 @@ app.get('/', async (req, res) => {
           .issue-type-icon.story { color: #38A169; }
           .issue-type-icon.task { color: #3182CE; }
           .issue-type-icon.spike { color: #805AD5; }
+          .filter-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; padding: 15px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+          .filter-label { display: inline-block; padding: 6px 12px; background: #EBECF0; color: #172B4D; border-radius: 4px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
+          .filter-label:hover { background: #DFE1E6; }
+          .filter-label.active { background: #0052CC; color: white; }
+          .filter-label.all { background: #DFE1E6; font-weight: 500; }
+          .filter-label.all.active { background: #172B4D; color: white; }
+          .ticket { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid #EBECF0; }
+          .ticket.hidden { display: none; }
           
           @media (max-width: 1400px) {
             .status-columns { grid-template-columns: repeat(2, 1fr); }
@@ -428,6 +439,54 @@ app.get('/', async (req, res) => {
             .status-columns { grid-template-columns: 1fr; }
           }
         </style>
+        <script>
+          function filterByAssignee(assignee, event) {
+            // Update active state
+            document.querySelectorAll('.filter-label').forEach(label => {
+              label.classList.remove('active');
+            });
+            if (event && event.target) {
+              event.target.classList.add('active');
+            } else {
+              // Fallback: find label by data-filter attribute
+              const filterValue = assignee === 'all' ? 'all' : assignee.replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+              const label = document.querySelector('.filter-label[data-filter="' + filterValue + '"]');
+              if (label) label.classList.add('active');
+            }
+            
+            // Filter tickets
+            const tickets = document.querySelectorAll('.ticket');
+            tickets.forEach(ticket => {
+              if (assignee === 'all') {
+                ticket.classList.remove('hidden');
+              } else {
+                const ticketAssignee = ticket.getAttribute('data-assignee');
+                // Compare decoded values
+                const decodedAssignee = assignee.replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+                const decodedTicketAssignee = ticketAssignee.replace(/&quot;/g, '"');
+                if (decodedTicketAssignee === decodedAssignee) {
+                  ticket.classList.remove('hidden');
+                } else {
+                  ticket.classList.add('hidden');
+                }
+              }
+            });
+            
+            // Update ticket counts in headers
+            updateTicketCounts();
+          }
+          
+          function updateTicketCounts() {
+            const statusGroups = document.querySelectorAll('.status-group');
+            statusGroups.forEach(group => {
+              const visibleTickets = group.querySelectorAll('.ticket:not(.hidden)').length;
+              const countSpan = group.querySelector('.status-header span:last-child');
+              if (countSpan) {
+                countSpan.textContent = visibleTickets + ' tickets';
+              }
+            });
+          }
+        </script>
       </head>
       <body>
         <div class="container">
@@ -435,6 +494,15 @@ app.get('/', async (req, res) => {
           <p style="text-align: center; color: #6B778C; margin-bottom: 30px; font-size: 14px;">
             Tickets which have been in the same status for over 7 days
           </p>
+          
+          <div class="filter-bar">
+            <span class="filter-label all active" data-filter="all" onclick="filterByAssignee('all', event)">All</span>
+            ${allAssignees.map(assignee => {
+              const escapedAssignee = assignee.replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+              const jsSafeAssignee = assignee.replace(/'/g, "\\'").replace(/"/g, '\\"');
+              return `<span class="filter-label" data-filter="${escapedAssignee}" onclick="filterByAssignee('${jsSafeAssignee}', event)">${assignee}</span>`;
+            }).join('')}
+          </div>
           
           <div class="status-columns">
           ${TARGET_STATUSES.map(status => {
@@ -449,7 +517,7 @@ app.get('/', async (req, res) => {
                   <div class="status-content">
                     ${list.length === 0 ? '<p style="color: #6B778C; text-align: center; padding: 20px;">No tickets</p>' : list.map(i => {
                   return `
-                    <div class="ticket">
+                    <div class="ticket" data-assignee="${i.assignee.replace(/"/g, '&quot;')}">
                           <div class="days-badge ${i.badgeClass || ''}">
                         <span class="days-count">${i.days}</span>
                         <span class="days-label">days</span>
