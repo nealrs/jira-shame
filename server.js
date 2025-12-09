@@ -321,7 +321,7 @@ app.get('/', async (req, res) => {
       <head>
         <title>Stuck Tickets</title>
         <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 40px; background: #f4f5f7; color: #172B4D;}
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 0 40px; background: #f4f5f7; color: #172B4D;}
           .container { max-width: 1600px; margin: 0 auto; }
           h1 { text-align: center;}
           .status-columns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
