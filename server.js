@@ -112,27 +112,46 @@ app.get('/', async (req, res) => {
       fields: ['summary', 'status', 'assignee', 'created']
     });
     
-    // Then fetch changelog for each issue (the new endpoint may not support expand yet)
+    // Then fetch changelog, remote links (for PR info), and development info for each issue
     const issuesWithChangelog = await Promise.all(
       searchResponse.data.issues.map(async (issue) => {
         try {
-          const changelogResponse = await jiraClient.get(`/rest/api/3/issue/${issue.key}/changelog`);
+          const [changelogResponse, remotelinksResponse, devInfoResponse] = await Promise.all([
+            jiraClient.get(`/rest/api/3/issue/${issue.key}/changelog`).catch(() => ({ data: { values: [] } })),
+            jiraClient.get(`/rest/api/3/issue/${issue.key}/remotelink`).catch(() => ({ data: [] })),
+            // Try development info endpoint - may not be available in all Jira instances
+            jiraClient.get(`/rest/dev-status/latest/issue/detail`, {
+              params: { 
+                issueId: issue.id || issue.key, 
+                applicationType: 'GitHub', 
+                dataType: 'pullrequest' 
+              }
+            }).catch(() => ({ data: { detail: [] } }))
+          ]);
+          
           // The changelog endpoint returns { values: [...] } not { histories: [...] }
           const histories = changelogResponse.data.values || [];
+          const remotelinks = remotelinksResponse.data || [];
+          const devInfo = devInfoResponse.data?.detail || [];
+          
           return {
             ...issue,
-            changelog: { histories: histories }
+            changelog: { histories: histories },
+            remotelinks: remotelinks,
+            devInfo: devInfo
           };
         } catch (error) {
           return {
             ...issue,
-            changelog: { histories: [] }
+            changelog: { histories: [] },
+            remotelinks: [],
+            devInfo: []
           };
         }
       })
     );
     
-    // Replace the issues array with the one that includes changelog
+    // Replace the issues array with the one that includes changelog and remotelinks
     searchResponse.data.issues = issuesWithChangelog;
 
     // 5. Process Issues
@@ -172,13 +191,83 @@ app.get('/', async (req, res) => {
 
       const daysStuck = moment().diff(firstEnteredTime, 'days');
 
+      // Extract PR information from remote links and development info
+      const prs = [];
+      const remotelinks = issue.remotelinks || [];
+      const devInfo = issue.devInfo || [];
+      
+      // First, try to get PR info from development info (more detailed)
+      devInfo.forEach(detail => {
+        if (detail.pullRequests && Array.isArray(detail.pullRequests)) {
+          detail.pullRequests.forEach(pr => {
+            if (pr.url && pr.url.includes('/pull/')) {
+              const prMatch = pr.url.match(/\/pull\/(\d+)/);
+              const prNumber = prMatch ? prMatch[1] : null;
+              
+              if (prNumber) {
+                // Check review status from dev info
+                const reviewers = pr.reviewers || [];
+                const reviewerCount = reviewers.length;
+                const approvedReviews = reviewers.filter(r => r.status === 'APPROVED') || [];
+                const completedReviews = reviewers.filter(r => r.status && r.status !== 'PENDING' && r.status !== 'REQUESTED');
+                
+                // Only show "needs review" if there are assigned reviewers AND some haven't completed reviews
+                const needsReview = reviewerCount > 0 && completedReviews.length < reviewerCount;
+                
+                prs.push({
+                  url: pr.url,
+                  number: prNumber,
+                  title: pr.title || `PR #${prNumber}`,
+                  status: pr.status?.toLowerCase() || 'open',
+                  needsReview: needsReview,
+                  approvedCount: approvedReviews.length,
+                  reviewerCount: reviewerCount,
+                  completedReviewCount: completedReviews.length
+                });
+              }
+            }
+          });
+        }
+      });
+      
+      // Fallback to remote links if dev info doesn't have PRs
+      if (prs.length === 0) {
+        remotelinks.forEach(link => {
+          // Check if this is a GitHub PR link
+          const relationship = (link.relationship || '').toLowerCase();
+          const url = link.object?.url || '';
+          const title = link.object?.title || '';
+          
+          if ((relationship.includes('pull') || relationship.includes('pr')) && 
+              (url.includes('/pull/') || url.includes('/pulls/'))) {
+            // Extract PR number from URL
+            const prMatch = url.match(/\/pull\/(\d+)/);
+            const prNumber = prMatch ? prMatch[1] : null;
+            
+            if (prNumber) {
+              prs.push({
+                url: url,
+                number: prNumber,
+                title: title || `PR #${prNumber}`,
+                status: link.status?.resolved ? 'merged' : 'open',
+                needsReview: false, // Unknown from remote links, don't show needs review
+                approvedCount: 0,
+                reviewerCount: 0,
+                completedReviewCount: 0
+              });
+            }
+          }
+        });
+      }
+
       return {
         key: issue.key,
         summary: issue.fields.summary,
         status: currentStatus,
         assignee: issue.fields.assignee ? issue.fields.assignee.displayName : 'Unassigned',
         days: daysStuck,
-        link: `https://${JIRA_HOST}/browse/${issue.key}`
+        link: `https://${JIRA_HOST}/browse/${issue.key}`,
+        prs: prs
       };
     })
     .filter(issue => issue.days >= 7); // Only show issues that have been in status for at least 7 days
@@ -259,6 +348,16 @@ app.get('/', async (req, res) => {
           .summary { color: #172B4D; }
           .meta { font-size: 12px; color: #6B778C; margin-top: 4px; }
           .assignee { display: inline-block; background: #EBECF0; padding: 2px 6px; border-radius: 4px; margin-right: 8px;}
+          .pr-info { margin-top: 6px; }
+          .pr-link { display: inline-block; background: #E3FCEF; color: #006644; padding: 2px 8px; border-radius: 4px; margin-right: 6px; text-decoration: none; font-size: 11px; }
+          .pr-link:hover { background: #ABF5D1; }
+          .pr-status { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 500; margin-left: 4px; }
+          .pr-status.open { background: #DEEBFF; color: #0052CC; }
+          .pr-status.merged { background: #E3FCEF; color: #006644; }
+          .pr-status.closed { background: #FFEBE6; color: #BF2600; }
+          .pr-review-status { font-size: 10px; color: #6B778C; margin-left: 4px; }
+          .pr-review-status.needs-review { color: #BF2600; font-weight: 500; }
+          .pr-review-status.approved { color: #006644; }
           
           @media (max-width: 1400px) {
             .status-columns { grid-template-columns: repeat(2, 1fr); }
@@ -301,6 +400,25 @@ app.get('/', async (req, res) => {
                             <div class="meta">
                               <span class="assignee">${i.assignee}</span>
                             </div>
+                            ${i.prs && i.prs.length > 0 ? `
+                              <div class="pr-info">
+                                ${i.prs.map(pr => {
+                                  let reviewText = '';
+                                  if (pr.needsReview) {
+                                    reviewText = `<span class="pr-review-status needs-review">⚠ Needs review (${pr.completedReviewCount || 0}/${pr.reviewerCount} completed)</span>`;
+                                  } else if (pr.approvedCount > 0) {
+                                    reviewText = `<span class="pr-review-status approved">✓ ${pr.approvedCount} approved</span>`;
+                                  } else if (pr.reviewerCount > 0 && pr.completedReviewCount === pr.reviewerCount) {
+                                    reviewText = `<span class="pr-review-status approved">✓ All reviews complete</span>`;
+                                  }
+                                  return `
+                                    <a href="${pr.url}" class="pr-link" target="_blank">PR #${pr.number}</a>
+                                    <span class="pr-status ${pr.status}">${pr.status}</span>
+                                    ${reviewText}
+                                  `;
+                                }).join('')}
+                              </div>
+                            ` : ''}
                           </div>
                         </div>
                       `;
