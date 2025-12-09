@@ -1,0 +1,12 @@
+services:
+  jira-shame:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - JIRA_HOST=audicus.atlassian.net
+      - JIRA_EMAIL=${JIRA_EMAIL}
+      - JIRA_API_TOKEN=${JIRA_API_TOKEN}
+      - JIRA_CLOUD_ID=${JIRA_CLOUD_ID}
+      - BOARD_ID=7
+    restart: unless-stopped
