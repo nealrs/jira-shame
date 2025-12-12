@@ -3,10 +3,8 @@
 Express app that connects to JIRA and provides two views for tracking ticket progress:
 
 **Slow Motion** (`/slow`) - Shows tickets that have been stuck in the same status for 7+ days
-![](./demo/slow.png)
 
 **Completed Tickets** (`/done`) - Shows all tickets completed in a selected time period
-![](./demo/done.png)
 
 ## How It Works
 
