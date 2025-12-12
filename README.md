@@ -1,10 +1,15 @@
-# Jira Shame - SLOW MOTION
+# The Blame Game
 
-Express app that connects to JIRA and shows you tickets which have been stuck in the same status for an extended period of time. The app focuses on tickets in the current sprint and highlights those that have been stagnant for 7+ days.
+Express app that connects to JIRA and provides two views for tracking ticket progress:
+
+1. **Slow Motion** (`/slow`) - Shows tickets that have been stuck in the same status for 7+ days
+2. **Completed Tickets** (`/done`) - Shows all tickets completed in a selected time period
 
 ## What It Does
 
-This application:
+### Slow Motion Route
+
+The `/slow` route:
 
 - **Finds the current/latest sprint** for your Jira board
 - **Filters tickets** to only show those in the current sprint
@@ -14,6 +19,19 @@ This application:
   - **Grey**: Less than 1 sprint duration
   - **Yellow**: 1 sprint or more
   - **Red**: 2 sprints or more
+- **Allows filtering** by assignee to see who's responsible for stagnant work
+- **Shows PR information** including review status for tickets with linked pull requests
+
+### Completed Tickets Route
+
+The `/done` route:
+
+- **Shows completed tickets** (Done or Won't Do) in a selected time period
+- **Time period options**: Today, Yesterday, This Week, This Month, Last Month
+- **Displays completion metrics**: How long each ticket took from creation to completion
+- **Shows assignee and reporter** information
+- **Visual issue type indicators** (bug, story, task, epic, subtask, spike)
+- **Sorts by ticket ID** (most recent first)
 
 ## Tracked Statuses
 
@@ -104,6 +122,8 @@ docker run -p 3000:3000 --env-file .env jira-shame
 
 ## How It Works
 
+### Slow Motion Route (`/slow`)
+
 1. **Sprint Detection**: Fetches all sprints for the specified board and identifies the current active sprint by checking if today's date falls between the sprint's start and end dates. If no active sprint is found, it uses the most recent sprint.
 
 2. **Issue Filtering**: Queries Jira for tickets that:
@@ -113,18 +133,48 @@ docker run -p 3000:3000 --env-file .env jira-shame
 
 3. **Status Duration Calculation**: For each ticket, the app:
    - Fetches the changelog history
-   - Finds the earliest time the ticket entered its current status
-   - Calculates the number of days since that transition
-   - If no transition is found, uses the ticket creation date
+   - Builds a timeline of all status changes
+   - Sums only the periods when the ticket was in its current status (not counting time in other statuses)
+   - Calculates the total days in the current status
 
 4. **Badge Styling**: Badges are colored based on sprint duration:
    - Calculates the current sprint's duration in days
    - Compares ticket duration to 1x and 2x sprint duration
    - Applies appropriate color class
 
-## API Endpoints
+5. **PR Integration**: For tickets with linked pull requests:
+   - Fetches PR information from Jira's development panel and remote links
+   - Shows PR review status (needs review if there are assigned reviewers who haven't completed reviews)
 
-- `GET /` - Main dashboard displaying stagnant tickets
+### Completed Tickets Route (`/done`)
+
+1. **Date Range Calculation**: Determines the start and end dates based on the selected period (today, yesterday, this week, this month, or last month).
+
+2. **Issue Query**: Queries Jira for tickets that:
+   - Have status "Done" or "Won't Do"
+   - Have a resolution date within the selected period (with a small buffer for edge cases)
+
+3. **Completion Time Calculation**: For each ticket:
+   - Fetches the changelog to find the exact moment it was marked Done or Won't Do
+   - Calculates the duration from ticket creation to completion
+   - Formats duration as hours, days, or weeks/days
+
+4. **Resolution Status**: Determines whether the ticket was marked "Done" or "Won't Do" by checking:
+   - The resolution field (most reliable)
+   - The current status field
+   - The changelog history (fallback)
+
+5. **Display**: Shows tickets in a table format with:
+   - Issue type badges
+   - Assignee and reporter information
+   - Completion duration
+   - Completion date formatted as (MM/DD/YY)
+
+## Routes
+
+- `GET /` - Main dashboard with links to both reports
+- `GET /slow` - Slow Motion report showing stagnant tickets
+- `GET /done` - Completed tickets report (supports `?period=today|yesterday|this-week|this-month|last-month`)
 
 ## Technologies Used
 
@@ -151,3 +201,4 @@ docker run -p 3000:3000 --env-file .env jira-shame
 ### 404 Not Found
 
 - Verify your `JIRA_HOST` is correct (should be just the domain, e.g., `your-domain.atlassian.net`)
+

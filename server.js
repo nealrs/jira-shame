@@ -24,7 +24,128 @@ const jiraClient = axios.create({
   }
 });
 
-app.get('/', async (req, res) => {
+app.get('/', (req, res) => {
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Jira Shame - Dashboard</title>
+      <style>
+        body { 
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+          padding: 0; 
+          background: #f4f5f7; 
+          color: #172B4D;
+          margin: 0;
+        }
+        .container { 
+          max-width: 1200px; 
+          margin: 0 auto; 
+          padding: 60px 40px;
+        }
+        h1 { 
+          text-align: center; 
+          font-size: 48px;
+          margin-bottom: 10px;
+          color: #172B4D;
+        }
+        .subtitle {
+          text-align: center;
+          color: #6B778C;
+          font-size: 18px;
+          margin-bottom: 60px;
+        }
+        .routes {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+          gap: 30px;
+          margin-top: 40px;
+        }
+        .route-card {
+          background: white;
+          border-radius: 8px;
+          padding: 30px;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .route-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .route-card h2 {
+          margin-top: 0;
+          margin-bottom: 15px;
+          color: #172B4D;
+          font-size: 24px;
+        }
+        .route-card p {
+          color: #6B778C;
+          line-height: 1.6;
+          margin-bottom: 20px;
+        }
+        .route-link {
+          display: inline-block;
+          padding: 12px 24px;
+          background: #0052CC;
+          color: white;
+          text-decoration: none;
+          border-radius: 4px;
+          font-weight: 500;
+          transition: background 0.2s;
+        }
+        .route-link:hover {
+          background: #0065FF;
+        }
+        .route-link.slow {
+          background: #DE350B;
+        }
+        .route-link.slow:hover {
+          background: #FF5630;
+        }
+        .icon {
+          font-size: 32px;
+          margin-bottom: 15px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>The Blame Game</h1>
+        <p class="subtitle"><em>It was the best of times. It was the worst of times.</em></p>
+        
+        <div class="routes">
+          <div class="route-card">
+            <div class="icon">🐌</div>
+            <h2>SLOW MOTION</h2>
+            <p>
+              View tickets that have been stuck in the same status for 7+ days. 
+              Filter by assignee to see who's responsible for stagnant work. 
+              Tickets are grouped by status (To Do, Ready for Development, In Progress, In Review) 
+              and color-coded based on how long they've been stuck.
+            </p>
+            <a href="/slow" class="route-link slow">View Stagnant Tickets</a>
+          </div>
+          
+          <div class="route-card">
+            <div class="icon">✅</div>
+            <h2>COMPLETED TICKETS</h2>
+            <p>
+              See all tickets that were completed (Done or Won't Do) in a selected time period. 
+              View completion times, assignees, and reporters. Filter by today, yesterday, 
+              this week, this month, or last month. Tickets are grouped by assignee and 
+              sorted by completion time.
+            </p>
+            <a href="/done" class="route-link">View Completed Tickets</a>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+  res.send(html);
+});
+
+app.get('/slow', async (req, res) => {
   try {
     // 1. Get the current/latest sprint for the board using dates
     let currentSprintId = null;
@@ -107,7 +228,7 @@ app.get('/', async (req, res) => {
     
     // First, get basic issue data with the new endpoint
     const searchResponse = await jiraClient.post(`/rest/api/3/search/jql`, {
-      jql: `key in (${issueKeys.join(',')})`,
+        jql: `key in (${issueKeys.join(',')})`,
       maxResults: 100,
       fields: ['summary', 'status', 'assignee', 'created', 'issuetype']
     });
@@ -165,11 +286,11 @@ app.get('/', async (req, res) => {
       
       // Build a timeline of all status transitions from changelog
       const statusTransitions = [];
-      
+
       if (history && Array.isArray(history)) {
-        history.forEach(record => {
+      history.forEach(record => {
           if (record.items && Array.isArray(record.items)) {
-            record.items.forEach(item => {
+        record.items.forEach(item => {
               if (item.field === 'status') {
                 statusTransitions.push({
                   date: moment(record.created),
@@ -423,6 +544,17 @@ app.get('/', async (req, res) => {
           .issue-type-icon.story { color: #38A169; }
           .issue-type-icon.task { color: #3182CE; }
           .issue-type-icon.spike { color: #805AD5; }
+          .issue-type-badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: 500; text-transform: uppercase; margin-right: 8px; }
+          .issue-type-badge.bug { background: #FFEBE6; color: #BF2600; }
+          .issue-type-badge.story { background: #E3FCEF; color: #006644; }
+          .issue-type-badge.task { background: #DEEBFF; color: #0052CC; }
+          .issue-type-badge.epic { background: #EAE6FF; color: #403294; }
+          .issue-type-badge.subtask { background: #F4F5F7; color: #42526E; }
+          .issue-type-badge.spike { background: #FFF4E6; color: #974F00; }
+          .issue-type-badge.idea { background: #FFF4E6; color: #974F00; }
+          .nav-links { text-align: center; margin-bottom: 20px; font-size: 14px; color: #6B778C; }
+          .nav-links a { color: #0052CC; text-decoration: none; margin: 0 8px; }
+          .nav-links a:hover { text-decoration: underline; }
           .filter-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; padding: 15px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
           .filter-label { display: inline-block; padding: 6px 12px; background: #EBECF0; color: #172B4D; border-radius: 4px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
           .filter-label:hover { background: #DFE1E6; }
@@ -490,6 +622,9 @@ app.get('/', async (req, res) => {
       </head>
       <body>
         <div class="container">
+          <div class="nav-links">
+            <a href="/">Home</a> | <a href="/slow">Slow Motion</a> | <a href="/done">Completed Tickets</a>
+          </div>
           <h1>SLOW MOTION</h1>
           <p style="text-align: center; color: #6B778C; margin-bottom: 30px; font-size: 14px;">
             Tickets which have been in the same status for over 7 days
@@ -522,11 +657,12 @@ app.get('/', async (req, res) => {
                         <span class="days-count">${i.days}</span>
                         <span class="days-label">days</span>
                       </div>
-                          <div class="details">
-                            <div>
-                              <a href="${i.link}" class="key" target="_blank">${i.key}</a>
-                              <span class="summary">${i.summary}</span>
-                            </div>
+                      <div class="details">
+                        <div>
+                          <a href="${i.link}" class="key" target="_blank">${i.key}</a>
+                          <span class="issue-type-badge ${i.issueType}">${i.issueType}</span>
+                          <span class="summary">${i.summary}</span>
+                        </div>
                         <div class="meta">
                           <span class="assignee">${i.assignee}</span>
                             </div>
@@ -558,6 +694,478 @@ app.get('/', async (req, res) => {
                   `;
                 }).join('')}
               </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    res.send(html);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(`Error: ${error.message}`);
+  }
+});
+
+app.get('/done', async (req, res) => {
+  try {
+    const period = req.query.period || 'this-week'; // today, yesterday, this-week, this-month, last-month
+    
+    // Calculate date ranges based on period
+    let startDate, endDate, periodLabel;
+    const now = moment();
+    
+    switch (period) {
+      case 'today':
+        startDate = moment().startOf('day');
+        endDate = moment().endOf('day');
+        periodLabel = 'Today';
+        break;
+      case 'yesterday':
+        startDate = moment().subtract(1, 'day').startOf('day');
+        endDate = moment().subtract(1, 'day').endOf('day');
+        periodLabel = 'Yesterday';
+        break;
+      case 'this-week':
+        startDate = moment().startOf('week');
+        endDate = moment().endOf('week');
+        periodLabel = 'This Week';
+        break;
+      case 'this-month':
+        startDate = moment().startOf('month');
+        endDate = moment().endOf('month');
+        periodLabel = 'This Month';
+        break;
+      case 'last-month':
+        startDate = moment().subtract(1, 'month').startOf('month');
+        endDate = moment().subtract(1, 'month').endOf('month');
+        periodLabel = 'Last Month';
+        break;
+      default:
+        startDate = moment().startOf('month');
+        endDate = moment().endOf('month');
+        periodLabel = 'This Month';
+    }
+    
+    // Build JQL query for completed tickets
+    // We'll query for tickets resolved in a slightly wider range to catch any edge cases
+    // Both "Done" and "Won't Do" are considered completed states
+    // We'll filter more precisely after getting the actual completion date from changelog
+    const startDateStr = startDate.clone().subtract(1, 'day').format('YYYY-MM-DD');
+    const endDateStr = endDate.clone().add(1, 'day').format('YYYY-MM-DD');
+    const jqlQuery = `status in (Done, "Won't Do") AND resolutiondate >= "${startDateStr}" AND resolutiondate <= "${endDateStr}"`;
+    
+    // Fetch completed issues from board
+    let issueKeys = [];
+    try {
+      const boardResponse = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}/issue`, {
+        params: {
+          jql: jqlQuery,
+          fields: 'key',
+          maxResults: 200
+        }
+      });
+      issueKeys = (boardResponse.data.issues || []).map(i => i.key);
+    } catch (error) {
+      console.error('Error fetching from board, trying direct search:', error.message);
+      // Fallback: try direct search
+      const searchResponse = await jiraClient.post(`/rest/api/3/search/jql`, {
+        jql: jqlQuery,
+        maxResults: 200,
+        fields: ['key']
+      });
+      issueKeys = (searchResponse.data.issues || []).map(i => i.key);
+    }
+    
+    console.log(`Found ${issueKeys.length} completed issues for ${periodLabel}`);
+    
+    if (issueKeys.length === 0) {
+      return res.send(`
+        <html>
+          <head>
+            <title>Completed Tickets</title>
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 40px; background: #f4f5f7; text-align: center; }
+              h1 { color: #172B4D; }
+              .period-selector { margin: 20px 0; }
+              .period-selector a { display: inline-block; padding: 8px 16px; margin: 0 4px; background: #EBECF0; color: #172B4D; text-decoration: none; border-radius: 4px; }
+              .period-selector a.active { background: #0052CC; color: white; }
+            </style>
+          </head>
+          <body>
+            <h1>Completed Tickets</h1>
+            <div class="period-selector">
+              <a href="/done?period=today" class="${period === 'today' ? 'active' : ''}">Today</a>
+              <a href="/done?period=yesterday" class="${period === 'yesterday' ? 'active' : ''}">Yesterday</a>
+              <a href="/done?period=this-week" class="${period === 'this-week' ? 'active' : ''}">This Week</a>
+              <a href="/done?period=this-month" class="${period === 'this-month' ? 'active' : ''}">This Month</a>
+              <a href="/done?period=last-month" class="${period === 'last-month' ? 'active' : ''}">Last Month</a>
+            </div>
+            <p style="color: #6B778C; margin-top: 40px;">No completed tickets found for ${periodLabel}</p>
+          </body>
+        </html>
+      `);
+    }
+    
+    // Bulk fetch details using new /rest/api/3/search/jql endpoint
+    // Note: sprint field might need to be expanded, but let's try without expand first
+    const searchResponse = await jiraClient.post(`/rest/api/3/search/jql`, {
+      jql: `key in (${issueKeys.join(',')})`,
+      maxResults: 200,
+      fields: ['summary', 'status', 'assignee', 'reporter', 'created', 'resolutiondate', 'issuetype', 'sprint', 'resolution']
+    });
+    
+    const issues = searchResponse.data.issues || [];
+    console.log(`Found ${issues.length} completed issues for ${periodLabel}`);
+    
+    if (issues.length === 0) {
+      return res.send(`
+        <html>
+          <head>
+            <title>Completed Tickets</title>
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 40px; background: #f4f5f7; text-align: center; }
+              h1 { color: #172B4D; }
+              .period-selector { margin: 20px 0; }
+              .period-selector a { display: inline-block; padding: 8px 16px; margin: 0 4px; background: #EBECF0; color: #172B4D; text-decoration: none; border-radius: 4px; }
+              .period-selector a.active { background: #0052CC; color: white; }
+            </style>
+          </head>
+          <body>
+            <h1>Completed Tickets</h1>
+            <div class="period-selector">
+              <a href="/done?period=today" class="${period === 'today' ? 'active' : ''}">Today</a>
+              <a href="/done?period=yesterday" class="${period === 'yesterday' ? 'active' : ''}">Yesterday</a>
+              <a href="/done?period=this-week" class="${period === 'this-week' ? 'active' : ''}">This Week</a>
+              <a href="/done?period=this-month" class="${period === 'this-month' ? 'active' : ''}">This Month</a>
+              <a href="/done?period=last-month" class="${period === 'last-month' ? 'active' : ''}">Last Month</a>
+            </div>
+            <p style="color: #6B778C; margin-top: 40px;">No completed tickets found for ${periodLabel}</p>
+          </body>
+        </html>
+      `);
+    }
+    
+    // Fetch changelog for each issue to get exact completion time and check if it was in a sprint
+    const issuesWithChangelog = await Promise.all(
+      issues.map(async (issue) => {
+        try {
+          const changelogResponse = await jiraClient.get(`/rest/api/3/issue/${issue.key}/changelog`).catch(() => ({ data: { values: [] } }));
+          const histories = changelogResponse.data.values || [];
+          
+          // Find when ticket was moved to Done or Won't Do, and track which status
+          let doneDate = null;
+          let resolutionStatus = null;
+          
+          // First, try to get resolution from resolution field (most reliable)
+          if (issue.fields.resolution) {
+            const resolutionName = issue.fields.resolution.name;
+            console.log(`Ticket ${issue.key}: Resolution field: "${resolutionName}"`);
+            // Resolution field might have different values, but status is more reliable
+          }
+          
+          // Check current status - this is the most reliable
+          if (issue.fields.status) {
+            const currentStatus = issue.fields.status.name;
+            console.log(`Ticket ${issue.key}: Current status from API: "${currentStatus}"`);
+            // Check for exact match or case-insensitive match
+            const statusLower = currentStatus.toLowerCase();
+            if (statusLower === 'done') {
+              resolutionStatus = 'Done';
+            } else if (statusLower === "won't do" || statusLower === "wont do") {
+              resolutionStatus = "Won't Do";
+            }
+            console.log(`Ticket ${issue.key}: Resolution status set to: "${resolutionStatus}"`);
+          }
+          
+          if (issue.fields.resolutiondate) {
+            doneDate = moment(issue.fields.resolutiondate);
+          } else {
+            // Fallback: find in changelog
+            for (const history of histories) {
+              if (history.items && Array.isArray(history.items)) {
+                for (const item of history.items) {
+                  if (item.field === 'status') {
+                    const toStatus = item.toString;
+                    const toStatusLower = toStatus ? toStatus.toLowerCase() : '';
+                    console.log(`Ticket ${issue.key}: Changelog status change to: "${toStatus}"`);
+                    if (toStatusLower === 'done' || toStatusLower === "won't do" || toStatusLower === "wont do") {
+                      doneDate = moment(history.created);
+                      // Only set resolutionStatus from changelog if we don't already have it
+                      if (!resolutionStatus) {
+                        // Normalize to proper case
+                        if (toStatusLower === 'done') {
+                          resolutionStatus = 'Done';
+                        } else {
+                          resolutionStatus = "Won't Do";
+                        }
+                        console.log(`Ticket ${issue.key}: Resolution status from changelog: "${resolutionStatus}"`);
+                      }
+                      break;
+                    }
+                  }
+                }
+              }
+              if (doneDate) break;
+            }
+          }
+          
+          const finalDoneDate = doneDate || moment(issue.fields.resolutiondate || issue.fields.updated);
+          // Default to Done if we couldn't determine
+          if (!resolutionStatus) {
+            resolutionStatus = 'Done';
+            console.log(`Ticket ${issue.key}: Defaulting resolution status to "Done"`);
+          }
+          
+          console.log(`Ticket ${issue.key}: Final resolution status: "${resolutionStatus}"`);
+          
+          // Find the latest sprint this ticket was in
+          let latestSprintId = null;
+          let latestSprintName = null;
+          let latestSprintEndDate = null;
+          
+          // Debug: log sprint field structure
+          console.log(`Ticket ${issue.key}: sprint field type: ${typeof issue.fields.sprint}, value:`, JSON.stringify(issue.fields.sprint));
+          
+          if (issue.fields.sprint) {
+            let sprintIds = [];
+            
+            // Handle different sprint field formats
+            if (Array.isArray(issue.fields.sprint)) {
+              sprintIds = issue.fields.sprint.map(sprint => {
+                // Sprint can be an object with id property or just an id
+                if (typeof sprint === 'object' && sprint !== null) {
+                  return sprint.id || sprint;
+                }
+                return sprint;
+              }).filter(id => id != null);
+            } else if (typeof issue.fields.sprint === 'object' && issue.fields.sprint !== null) {
+              // Single sprint object
+              sprintIds = [issue.fields.sprint.id || issue.fields.sprint].filter(id => id != null);
+            }
+            
+            if (sprintIds.length > 0) {
+              console.log(`Ticket ${issue.key}: Found sprint IDs:`, sprintIds);
+              // Fetch sprint details to find the latest one by end date
+              const sprintDetails = await Promise.all(
+                sprintIds.map(async (sprintId) => {
+                  try {
+                    const sprintResponse = await jiraClient.get(`/rest/agile/1.0/sprint/${sprintId}`);
+                    return sprintResponse.data;
+                  } catch (error) {
+                    console.error(`Error fetching sprint ${sprintId} for ticket ${issue.key}:`, error.message);
+                    return null;
+                  }
+                })
+              );
+              
+              // Filter out nulls and find the sprint with the latest end date
+              const validSprints = sprintDetails.filter(s => s && s.endDate);
+              if (validSprints.length > 0) {
+                const latestSprint = validSprints.sort((a, b) => moment(b.endDate).valueOf() - moment(a.endDate).valueOf())[0];
+                latestSprintId = latestSprint.id;
+                latestSprintName = latestSprint.name;
+                latestSprintEndDate = moment(latestSprint.endDate);
+                console.log(`Ticket ${issue.key}: Latest sprint: ${latestSprintName} (ID: ${latestSprintId}, End: ${latestSprint.endDate})`);
+              } else {
+                console.log(`Ticket ${issue.key}: No valid sprints found with end dates`);
+              }
+            } else {
+              console.log(`Ticket ${issue.key}: No sprint IDs extracted`);
+            }
+          } else {
+            console.log(`Ticket ${issue.key}: No sprint field`);
+          }
+          
+          return {
+            ...issue,
+            changelog: { histories: histories },
+            doneDate: finalDoneDate,
+            resolutionStatus: resolutionStatus,
+            latestSprintId: latestSprintId,
+            latestSprintName: latestSprintName || 'Backlog',
+            latestSprintEndDate: latestSprintEndDate
+          };
+        } catch (error) {
+          // Try to get resolution status from current status
+          let resolutionStatus = 'Done';
+          if (issue.fields.status && issue.fields.status.name === "Won't Do") {
+            resolutionStatus = "Won't Do";
+          }
+          
+          return {
+            ...issue,
+            changelog: { histories: [] },
+            doneDate: moment(issue.fields.resolutiondate || issue.fields.updated),
+            resolutionStatus: resolutionStatus,
+            latestSprintId: null,
+            latestSprintName: 'Backlog',
+            latestSprintEndDate: null
+          };
+        }
+      })
+    );
+    
+    // Process issues to calculate completion time and filter by actual completion date
+    const processedIssues = issuesWithChangelog
+      .map(issue => {
+        const createdDate = moment(issue.fields.created);
+        const doneDate = issue.doneDate;
+        const daysToComplete = doneDate.diff(createdDate, 'days');
+        const hoursToComplete = doneDate.diff(createdDate, 'hours');
+        
+        // Format duration
+        let durationText;
+        if (daysToComplete === 0) {
+          durationText = `${hoursToComplete} hour${hoursToComplete !== 1 ? 's' : ''}`;
+        } else if (daysToComplete < 7) {
+          durationText = `${daysToComplete} day${daysToComplete !== 1 ? 's' : ''}`;
+        } else {
+          const weeks = Math.floor(daysToComplete / 7);
+          const remainingDays = daysToComplete % 7;
+          if (remainingDays === 0) {
+            durationText = `${weeks} week${weeks !== 1 ? 's' : ''}`;
+          } else {
+            durationText = `${weeks} week${weeks !== 1 ? 's' : ''}, ${remainingDays} day${remainingDays !== 1 ? 's' : ''}`;
+          }
+        }
+        
+      // Format completion date as MM/DD/YY
+      const completedDateFormatted = doneDate.format('MM/DD/YY');
+      
+      // Get issue type
+      const issueType = issue.fields.issuetype?.name || 'Task';
+      const issueTypeLower = issueType.toLowerCase();
+      
+      return {
+        key: issue.key,
+        summary: issue.fields.summary,
+        assignee: issue.fields.assignee ? issue.fields.assignee.displayName : 'Unassigned',
+        reporter: issue.fields.reporter ? issue.fields.reporter.displayName : 'Unknown',
+        created: createdDate.format('YYYY-MM-DD'),
+        completed: doneDate.format('YYYY-MM-DD HH:mm'),
+        completedDate: doneDate.format('YYYY-MM-DD'), // Just the date part for filtering
+        completedDateFormatted: completedDateFormatted,
+        resolutionStatus: issue.resolutionStatus || 'Done',
+        daysToComplete: daysToComplete,
+        durationText: durationText,
+        link: `https://${JIRA_HOST}/browse/${issue.key}`,
+        latestSprintName: issue.latestSprintName || 'Backlog',
+        latestSprintEndDate: issue.latestSprintEndDate,
+        issueType: issueTypeLower
+      };
+      })
+      // Filter by actual completion date (not resolutiondate from JQL)
+      .filter(issue => {
+        const issueCompletedDate = moment(issue.completedDate);
+        // Check if the completion date falls within the selected period
+        return issueCompletedDate.isSameOrAfter(startDate, 'day') && issueCompletedDate.isSameOrBefore(endDate, 'day');
+      });
+    
+    // Sort by ticket ID (extract numeric part, higher numbers = more recent = first)
+    processedIssues.sort((a, b) => {
+      // Extract numeric part from ticket key (e.g., "ENG-2256" -> 2256)
+      const extractTicketNumber = (key) => {
+        const match = key.match(/-(\d+)$/);
+        return match ? parseInt(match[1], 10) : 0;
+      };
+      
+      const aNum = extractTicketNumber(a.key);
+      const bNum = extractTicketNumber(b.key);
+      
+      // Sort descending (higher ticket numbers first)
+      return bNum - aNum;
+    });
+    
+    // Generate HTML
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Completed Tickets - ${periodLabel}</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 0 40px; background: #f4f5f7; color: #172B4D;}
+          .container { max-width: 1400px; margin: 0 auto; }
+          h1 { text-align: center; margin-bottom: 10px; }
+          .period-selector { display: flex; justify-content: center; gap: 8px; margin: 20px 0 30px; flex-wrap: wrap; }
+          .period-selector a { display: inline-block; padding: 8px 16px; background: #EBECF0; color: #172B4D; text-decoration: none; border-radius: 4px; font-size: 14px; transition: all 0.2s; }
+          .period-selector a:hover { background: #DFE1E6; }
+          .period-selector a.active { background: #0052CC; color: white; }
+          .summary { text-align: center; color: #6B778C; margin-bottom: 30px; font-size: 14px; }
+          .tickets-list { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 20px; }
+          .ticket { padding: 16px; border-bottom: 1px solid #EBECF0; display: grid; grid-template-columns: 120px 1fr 150px 150px 140px; gap: 20px; align-items: center; }
+          .ticket:last-child { border-bottom: none; }
+          .ticket:hover { background: #F4F5F7; }
+          .key { font-weight: bold; color: #0052CC; text-decoration: none; white-space: nowrap; }
+          .key:hover { text-decoration: underline; }
+          .summary-text { color: #172B4D; }
+          .meta { font-size: 13px; color: #6B778C; }
+          .assignee, .reporter { display: inline-block; background: #EBECF0; padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap; }
+          .duration { font-weight: 600; color: #172B4D; }
+          .completed-date { font-size: 12px; color: #6B778C; }
+          .header-row { padding: 12px 16px; background: #F4F5F7; border-bottom: 2px solid #DFE1E6; font-weight: 600; font-size: 13px; color: #6B778C; text-transform: uppercase; display: grid; grid-template-columns: 120px 1fr 150px 150px 140px; gap: 20px; }
+          .sprint-name { display: inline-block; background: #E3FCEF; color: #006644; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+          .sprint-name.backlog { background: #EBECF0; color: #6B778C; }
+          .issue-type-badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: 500; text-transform: uppercase; margin-right: 8px; }
+          .issue-type-badge.bug { background: #FFEBE6; color: #BF2600; }
+          .issue-type-badge.story { background: #E3FCEF; color: #006644; }
+          .issue-type-badge.task { background: #DEEBFF; color: #0052CC; }
+          .issue-type-badge.epic { background: #EAE6FF; color: #403294; }
+          .issue-type-badge.subtask { background: #F4F5F7; color: #42526E; }
+          .issue-type-badge.spike { background: #FFF4E6; color: #974F00; }
+          .issue-type-badge.idea { background: #FFF4E6; color: #974F00; }
+          .nav-links { text-align: center; margin-bottom: 20px; font-size: 14px; color: #6B778C; }
+          .nav-links a { color: #0052CC; text-decoration: none; margin: 0 8px; }
+          .nav-links a:hover { text-decoration: underline; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="nav-links">
+            <a href="/">Home</a> | <a href="/slow">Slow Motion</a> | <a href="/done">Completed Tickets</a>
+          </div>
+          <h1>COMPLETED TICKETS</h1>
+          <div class="period-selector">
+            <a href="/done?period=today" class="${period === 'today' ? 'active' : ''}">Today</a>
+            <a href="/done?period=yesterday" class="${period === 'yesterday' ? 'active' : ''}">Yesterday</a>
+            <a href="/done?period=this-week" class="${period === 'this-week' ? 'active' : ''}">This Week</a>
+            <a href="/done?period=this-month" class="${period === 'this-month' ? 'active' : ''}">This Month</a>
+            <a href="/done?period=last-month" class="${period === 'last-month' ? 'active' : ''}">Last Month</a>
+          </div>
+          <p class="summary">${processedIssues.length} ticket${processedIssues.length !== 1 ? 's' : ''} completed in ${periodLabel}</p>
+          
+          <div class="tickets-list">
+            <div class="header-row">
+              <div>Key</div>
+              <div>Summary</div>
+              <div>Assignee</div>
+              <div>Reporter</div>
+              <div>Duration</div>
+            </div>
+            <div class="tickets-container">
+            ${processedIssues.map(issue => `
+              <div class="ticket">
+                <div>
+                  <a href="${issue.link}" class="key" target="_blank">${issue.key}</a>
+                </div>
+                <div class="summary-text">
+                  <span class="issue-type-badge ${issue.issueType}">${issue.issueType}</span>
+                  ${issue.summary}
+                </div>
+                <div>
+                  <span class="assignee">${issue.assignee}</span>
+                </div>
+                <div>
+                  <span class="reporter">${issue.reporter}</span>
+                </div>
+                <div>
+                  <div class="duration">${issue.durationText}</div>
+                  <div class="completed-date">${issue.resolutionStatus === "Won't Do" ? "Won't Do" : 'Done'} (${issue.completedDateFormatted})</div>
+                </div>
+              </div>
+            `).join('')}
+            </div>
+          </div>
         </div>
       </body>
       </html>
