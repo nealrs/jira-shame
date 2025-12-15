@@ -6,6 +6,9 @@ const moment = require('moment');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Serve static files from img folder
+app.use('/img', express.static('img'));
+
 // Config
 const JIRA_HOST = process.env.JIRA_HOST; 
 const JIRA_EMAIL = process.env.JIRA_EMAIL;
@@ -30,6 +33,7 @@ app.get('/', (req, res) => {
     <html>
     <head>
       <title>Jira Shame - Dashboard</title>
+      <link rel="icon" type="image/png" href="/img/favico.png">
       <style>
         body { 
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
@@ -501,6 +505,7 @@ app.get('/slow', async (req, res) => {
       <html>
       <head>
         <title>Stuck Tickets</title>
+        <link rel="icon" type="image/png" href="/img/favico.png">
         <style>
           body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 0 40px; background: #f4f5f7; color: #172B4D;}
           .container { max-width: 1600px; margin: 0 auto; }
@@ -709,7 +714,7 @@ app.get('/slow', async (req, res) => {
 
 app.get('/done', async (req, res) => {
   try {
-    const period = req.query.period || 'this-week'; // today, yesterday, this-week, this-month, last-month
+    const period = req.query.period || 'this-week'; // today, yesterday, this-week, last-7-days, this-month, last-month
     
     // Calculate date ranges based on period
     let startDate, endDate, periodLabel;
@@ -730,6 +735,11 @@ app.get('/done', async (req, res) => {
         startDate = moment().startOf('week');
         endDate = moment().endOf('week');
         periodLabel = 'This Week';
+        break;
+      case 'last-7-days':
+        startDate = moment().subtract(6, 'days').startOf('day');
+        endDate = moment().endOf('day');
+        periodLabel = 'Last 7 Days';
         break;
       case 'this-month':
         startDate = moment().startOf('month');
@@ -784,6 +794,7 @@ app.get('/done', async (req, res) => {
         <html>
           <head>
             <title>Completed Tickets</title>
+            <link rel="icon" type="image/png" href="/img/favico.png">
             <style>
               body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 40px; background: #f4f5f7; text-align: center; }
               h1 { color: #172B4D; }
@@ -798,6 +809,7 @@ app.get('/done', async (req, res) => {
               <a href="/done?period=today" class="${period === 'today' ? 'active' : ''}">Today</a>
               <a href="/done?period=yesterday" class="${period === 'yesterday' ? 'active' : ''}">Yesterday</a>
               <a href="/done?period=this-week" class="${period === 'this-week' ? 'active' : ''}">This Week</a>
+              <a href="/done?period=last-7-days" class="${period === 'last-7-days' ? 'active' : ''}">Last 7 Days</a>
               <a href="/done?period=this-month" class="${period === 'this-month' ? 'active' : ''}">This Month</a>
               <a href="/done?period=last-month" class="${period === 'last-month' ? 'active' : ''}">Last Month</a>
             </div>
@@ -823,6 +835,7 @@ app.get('/done', async (req, res) => {
         <html>
           <head>
             <title>Completed Tickets</title>
+            <link rel="icon" type="image/png" href="/img/favico.png">
             <style>
               body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 40px; background: #f4f5f7; text-align: center; }
               h1 { color: #172B4D; }
@@ -837,6 +850,7 @@ app.get('/done', async (req, res) => {
               <a href="/done?period=today" class="${period === 'today' ? 'active' : ''}">Today</a>
               <a href="/done?period=yesterday" class="${period === 'yesterday' ? 'active' : ''}">Yesterday</a>
               <a href="/done?period=this-week" class="${period === 'this-week' ? 'active' : ''}">This Week</a>
+              <a href="/done?period=last-7-days" class="${period === 'last-7-days' ? 'active' : ''}">Last 7 Days</a>
               <a href="/done?period=this-month" class="${period === 'this-month' ? 'active' : ''}">This Month</a>
               <a href="/done?period=last-month" class="${period === 'last-month' ? 'active' : ''}">Last Month</a>
             </div>
@@ -1083,6 +1097,7 @@ app.get('/done', async (req, res) => {
       <html>
       <head>
         <title>Completed Tickets - ${periodLabel}</title>
+        <link rel="icon" type="image/png" href="/img/favico.png">
         <style>
           body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 0 40px; background: #f4f5f7; color: #172B4D;}
           .container { max-width: 1400px; margin: 0 auto; }
@@ -1129,6 +1144,7 @@ app.get('/done', async (req, res) => {
             <a href="/done?period=today" class="${period === 'today' ? 'active' : ''}">Today</a>
             <a href="/done?period=yesterday" class="${period === 'yesterday' ? 'active' : ''}">Yesterday</a>
             <a href="/done?period=this-week" class="${period === 'this-week' ? 'active' : ''}">This Week</a>
+            <a href="/done?period=last-7-days" class="${period === 'last-7-days' ? 'active' : ''}">Last 7 Days</a>
             <a href="/done?period=this-month" class="${period === 'this-month' ? 'active' : ''}">This Month</a>
             <a href="/done?period=last-month" class="${period === 'last-month' ? 'active' : ''}">Last Month</a>
           </div>
