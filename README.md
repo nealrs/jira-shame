@@ -1,10 +1,12 @@
 # The Blame Game
 
-Express app that connects to JIRA and provides two views for tracking ticket progress:
+Express app that connects to JIRA and provides three views for tracking ticket progress:
 
 **Slow Motion** (`/slow`) - Shows tickets that have been stuck in the same status for 7+ days
 
 **Completed Tickets** (`/done`) - Shows all tickets completed in a selected time period
+
+**Backlog** (`/backlog`) - Shows all issues currently in the backlog (not in active sprint), sorted by creation date
 
 ## How It Works
 
@@ -28,11 +30,22 @@ The `/slow` route:
 The `/done` route:
 
 - **Shows completed tickets** (Done or Won't Do) in a selected time period
-- **Time period options**: Today, Yesterday, This Week, This Month, Last Month
+- **Time period options**: Today, Yesterday, This Week, Last 7 Days, This Month, Last Month
 - **Displays completion metrics**: How long each ticket took from creation to completion
 - **Shows assignee and reporter** information
 - **Visual issue type indicators** (bug, story, task, epic, subtask, spike)
 - **Sorts by ticket ID** (most recent first)
+
+### Backlog Route
+
+The `/backlog` route:
+
+- **Shows all backlog issues** (not Done, Won't Do, or in current/active sprint) from your board
+- **Displays age** in human-readable format (days, weeks, or months with decimals)
+- **Shows current status** and creation date for each issue
+- **Visual issue type indicators** (bug, story, task, epic, subtask, spike)
+- **Statistics at the top**: Total number of issues, median age, and average age
+- **Sorts by creation date** (oldest first) to show the longest-lingering tickets
 
 ## Tracked Statuses
 
@@ -171,11 +184,40 @@ docker run -p 3000:3000 --env-file .env jira-shame
    - Completion duration
    - Completion date formatted as (MM/DD/YY)
 
+### Backlog Route (`/backlog`)
+
+1. **Sprint Detection**: Fetches all sprints for the specified board and identifies the current active sprint by checking if today's date falls between the sprint's start and end dates. If no active sprint is found, it uses the most recent sprint.
+
+2. **Issue Query**: Queries Jira for all tickets that:
+   - Have status not in "Done" or "Won't Do"
+   - Are not in the current/active sprint
+   - Are ordered by creation date (oldest first)
+
+3. **Age Calculation**: For each ticket:
+   - Calculates time since creation
+   - Formats age in human-readable format:
+     - Days (if less than 1 week)
+     - Weeks with 1 decimal (if less than 1 month)
+     - Months with 1 decimal (if 1 month or more)
+
+4. **Statistics Calculation**: Calculates:
+   - Total number of backlog issues
+   - Median age (middle value when sorted)
+   - Average age (mean of all ages)
+
+5. **Display**: Shows tickets in a table format with:
+   - Statistics summary at the top
+   - Issue type badges
+   - Current status
+   - Creation date (MM/DD/YY)
+   - Age (formatted)
+
 ## Routes
 
-- `GET /` - Main dashboard with links to both reports
+- `GET /` - Main dashboard with links to all reports
 - `GET /slow` - Slow Motion report showing stagnant tickets
-- `GET /done` - Completed tickets report (supports `?period=today|yesterday|this-week|this-month|last-month`)
+- `GET /done` - Completed tickets report (supports `?period=today|yesterday|this-week|last-7-days|this-month|last-month`)
+- `GET /backlog` - Backlog report showing all issues not in active sprint, sorted by creation date
 
 ## Technologies Used
 

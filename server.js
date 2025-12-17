@@ -141,6 +141,17 @@ app.get('/', (req, res) => {
             </p>
             <a href="/done" class="route-link">View Completed Tickets</a>
           </div>
+          
+          <div class="route-card">
+            <div class="icon">⏰</div>
+            <h2>BACKLOG</h2>
+            <p>
+              View all issues currently in the backlog (not in active sprint). See when each ticket was created, 
+              its current status, and how long it's been open. Age is displayed in a human-readable format. 
+              Includes statistics showing total issues, median age, and average age.
+            </p>
+            <a href="/backlog" class="route-link">View Backlog Report</a>
+          </div>
         </div>
       </div>
     </body>
@@ -628,7 +639,7 @@ app.get('/slow', async (req, res) => {
       <body>
         <div class="container">
           <div class="nav-links">
-            <a href="/">Home</a> | <a href="/slow">Slow Motion</a> | <a href="/done">Completed Tickets</a>
+            <a href="/">Home</a> | <a href="/slow">Slow Motion</a> | <a href="/done">Completed Tickets</a> | <a href="/backlog">Backlog</a>
           </div>
           <h1>SLOW MOTION</h1>
           <p style="text-align: center; color: #6B778C; margin-bottom: 30px; font-size: 14px;">
@@ -670,7 +681,7 @@ app.get('/slow', async (req, res) => {
                         </div>
                         <div class="meta">
                           <span class="assignee">${i.assignee}</span>
-                            </div>
+                        </div>
                             ${i.prs && i.prs.length > 0 ? `
                               <div class="pr-info">
                                 ${i.prs.map(pr => {
@@ -690,14 +701,14 @@ app.get('/slow', async (req, res) => {
                                 }).join('')}
                               </div>
                             ` : ''}
-                          </div>
-                        </div>
-                      `;
-                    }).join('')}
                       </div>
                     </div>
                   `;
                 }).join('')}
+                      </div>
+              </div>
+            `;
+          }).join('')}
               </div>
         </div>
       </body>
@@ -1137,7 +1148,7 @@ app.get('/done', async (req, res) => {
       <body>
         <div class="container">
           <div class="nav-links">
-            <a href="/">Home</a> | <a href="/slow">Slow Motion</a> | <a href="/done">Completed Tickets</a>
+            <a href="/">Home</a> | <a href="/slow">Slow Motion</a> | <a href="/done">Completed Tickets</a> | <a href="/backlog">Backlog</a>
           </div>
           <h1>COMPLETED TICKETS</h1>
           <div class="period-selector">
@@ -1192,6 +1203,575 @@ app.get('/done', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).send(`Error: ${error.message}`);
+  }
+});
+
+app.get('/backlog', async (req, res) => {
+  try {
+    // 1. Get all sprints to identify current/active and upcoming sprints
+    let currentSprintIds = new Set();
+    let upcomingSprintIds = new Set();
+    const sprintMap = new Map(); // Map sprint ID to sprint object
+    
+    try {
+      const sprintsResponse = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}/sprint`, {
+        params: {
+          maxResults: 50
+        }
+      });
+      
+      const allSprints = sprintsResponse.data.values || [];
+      const now = moment();
+      
+      // Find current/active sprints and upcoming sprints
+      for (const sprint of allSprints) {
+        sprintMap.set(sprint.id, sprint);
+        
+        if (sprint.startDate && sprint.endDate) {
+          const startDate = moment(sprint.startDate);
+          const endDate = moment(sprint.endDate);
+          
+          // Current/active sprint: now is between start and end
+          if (now.isBetween(startDate, endDate, null, '[]')) {
+            currentSprintIds.add(sprint.id);
+          }
+          // Upcoming sprint: start date is in the future
+          else if (startDate.isAfter(now)) {
+            upcomingSprintIds.add(sprint.id);
+          }
+        }
+      }
+      
+      // If no active sprint found by date, get the most recent sprint
+      if (currentSprintIds.size === 0 && allSprints.length > 0) {
+        const sprintsWithDates = allSprints
+          .filter(s => s.startDate)
+          .sort((a, b) => moment(b.startDate).valueOf() - moment(a.startDate).valueOf());
+        
+        if (sprintsWithDates.length > 0) {
+          currentSprintIds.add(sprintsWithDates[0].id);
+        }
+      }
+      
+      console.log(`Found ${currentSprintIds.size} current sprint(s) and ${upcomingSprintIds.size} upcoming sprint(s)`);
+    } catch (error) {
+      console.error('Error fetching sprints:', error.message);
+    }
+    
+    // 2. Query for ALL open issues (we'll filter by sprint in code)
+    const jqlQuery = `status not in (Done, "Won't Do") ORDER BY created ASC`;
+    
+    // Fetch all open issues from board with pagination
+    let issueKeys = [];
+    try {
+      let startAt = 0;
+      const maxResults = 100; // Fetch in smaller batches
+      let hasMore = true;
+      
+      while (hasMore) {
+        const boardResponse = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}/issue`, {
+          params: {
+            jql: jqlQuery,
+            fields: 'key',
+            startAt: startAt,
+            maxResults: maxResults
+          }
+        });
+        
+        const issues = boardResponse.data.issues || [];
+        issueKeys = issueKeys.concat(issues.map(i => i.key));
+        
+        const total = boardResponse.data.total || 0;
+        startAt += issues.length;
+        hasMore = startAt < total && issues.length > 0;
+        
+        console.log(`Fetched ${issues.length} issues (${startAt}/${total} total)`);
+      }
+    } catch (error) {
+      console.error('Error fetching from board, trying direct search:', error.message);
+      // Fallback: try direct search with pagination
+      let startAt = 0;
+      const maxResults = 100;
+      let hasMore = true;
+      
+      while (hasMore) {
+        const searchResponse = await jiraClient.post(`/rest/api/3/search/jql`, {
+          jql: jqlQuery,
+          startAt: startAt,
+          maxResults: maxResults,
+          fields: ['key']
+        });
+        
+        const issues = searchResponse.data.issues || [];
+        issueKeys = issueKeys.concat(issues.map(i => i.key));
+        
+        const total = searchResponse.data.total || 0;
+        startAt += issues.length;
+        hasMore = startAt < total && issues.length > 0;
+        
+        console.log(`Fetched ${issues.length} issues via direct search (${startAt}/${total} total)`);
+      }
+    }
+    
+    console.log(`Found ${issueKeys.length} total open issues`);
+    
+    if (issueKeys.length === 0) {
+      return res.send(`
+        <html>
+          <head>
+            <title>Backlog Report</title>
+            <link rel="icon" type="image/png" href="/img/favico.png">
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 40px; background: #f4f5f7; text-align: center; }
+              h1 { color: #172B4D; }
+              .nav-links { text-align: center; margin-bottom: 20px; font-size: 14px; color: #6B778C; }
+              .nav-links a { color: #0052CC; text-decoration: none; margin: 0 8px; }
+              .nav-links a:hover { text-decoration: underline; }
+            </style>
+          </head>
+          <body>
+            <div class="nav-links">
+              <a href="/">Home</a> | <a href="/slow">Slow Motion</a> | <a href="/done">Completed Tickets</a> | <a href="/backlog">Backlog</a>
+            </div>
+            <h1>Backlog Report</h1>
+            <p style="color: #6B778C; margin-top: 40px;">No backlog issues found</p>
+          </body>
+        </html>
+      `);
+    }
+    
+    // 3. Bulk fetch details with sprint information (handle pagination if needed)
+    let allIssues = [];
+    const batchSize = 100; // Jira API limit for key in () queries
+    
+    // Fetch in batches if we have more than batchSize keys
+    for (let i = 0; i < issueKeys.length; i += batchSize) {
+      const batchKeys = issueKeys.slice(i, i + batchSize);
+      try {
+        const searchResponse = await jiraClient.post(`/rest/api/3/search/jql`, {
+          jql: `key in (${batchKeys.join(',')})`,
+          maxResults: batchSize,
+          fields: ['summary', 'status', 'created', 'issuetype', 'sprint']
+        });
+        
+        const batchIssues = searchResponse.data.issues || [];
+        allIssues = allIssues.concat(batchIssues);
+        console.log(`Fetched batch ${Math.floor(i/batchSize) + 1}: ${batchIssues.length} issues`);
+      } catch (error) {
+        console.error(`Error fetching batch ${Math.floor(i/batchSize) + 1}:`, error.message);
+        // Continue with other batches even if one fails
+      }
+    }
+    
+    console.log(`Fetched ${allIssues.length} total open issues (out of ${issueKeys.length} keys)`);
+    
+    // Debug: log a sample issue's sprint field structure
+    if (allIssues.length > 0) {
+      const sampleIssue = allIssues.find(i => i.fields.sprint) || allIssues[0];
+      console.log(`Sample issue ${sampleIssue.key} sprint field:`, JSON.stringify(sampleIssue.fields.sprint, null, 2));
+    }
+    
+    // 4. Get all issues in current AND upcoming sprints using board API (more reliable)
+    const issuesInCurrentOrUpcomingSprints = new Set();
+    const allSprintIdsToExclude = new Set([...currentSprintIds, ...upcomingSprintIds]);
+    
+    if (allSprintIdsToExclude.size > 0) {
+      for (const sprintId of allSprintIdsToExclude) {
+        try {
+          const sprintIssuesResponse = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}/issue`, {
+            params: {
+              jql: `sprint = ${sprintId}`,
+              fields: 'key',
+              maxResults: 500
+            }
+          });
+          const sprintIssueKeys = (sprintIssuesResponse.data.issues || []).map(i => i.key);
+          sprintIssueKeys.forEach(key => issuesInCurrentOrUpcomingSprints.add(key));
+          const sprintName = sprintMap.get(sprintId)?.name || sprintId;
+          console.log(`Found ${sprintIssueKeys.length} issues in sprint ${sprintName} (${sprintId}) via board API`);
+        } catch (error) {
+          console.error(`Error fetching issues in sprint ${sprintId}:`, error.message);
+        }
+      }
+    }
+    
+    // 5. Filter out epics, subtasks, and issues in current/upcoming sprints
+    let epicsExcluded = 0;
+    let subtasksExcluded = 0;
+    let inSprintExcluded = 0;
+    
+    const filteredIssues = allIssues.filter(issue => {
+      // Filter out epics and subtasks
+      const issueType = (issue.fields.issuetype?.name || '').toLowerCase();
+      if (issueType === 'epic') {
+        epicsExcluded++;
+        return false;
+      }
+      if (issueType === 'subtask') {
+        subtasksExcluded++;
+        return false;
+      }
+      
+      // Filter out issues in current or upcoming sprints (using board API check)
+      // Note: Issues in PAST sprints are kept (they're now in backlog)
+      if (issuesInCurrentOrUpcomingSprints.has(issue.key)) {
+        inSprintExcluded++;
+        if (issue.key === 'ENG-2348' || issue.key === 'ENG-2337') {
+          console.log(`DEBUG: Excluding ${issue.key} - found in current/upcoming sprint via board API`);
+        }
+        return false;
+      }
+      
+      return true;
+    });
+    
+    console.log(`Epics excluded: ${epicsExcluded}`);
+    console.log(`Subtasks excluded: ${subtasksExcluded}`);
+    console.log(`Issues in current/upcoming sprints excluded: ${inSprintExcluded}`);
+    console.log(`After filtering: ${filteredIssues.length} backlog issues`);
+    
+    // 6. For each issue, find the most recent sprint it's in (for display purposes)
+    const issuesWithSprints = await Promise.all(
+      filteredIssues.map(async (issue) => {
+        let latestSprintName = null;
+        let latestSprintId = null;
+        let isInUpcomingSprint = false;
+        
+        // Debug specific issues
+        if (issue.key === 'ENG-2348' || issue.key === 'ENG-2337') {
+          console.log(`DEBUG ${issue.key}: sprint field type: ${typeof issue.fields.sprint}`);
+          console.log(`DEBUG ${issue.key}: sprint field:`, JSON.stringify(issue.fields.sprint, null, 2));
+        }
+        
+        if (issue.fields.sprint) {
+          let sprintIds = [];
+          
+          // Handle different sprint field formats
+          if (Array.isArray(issue.fields.sprint)) {
+            sprintIds = issue.fields.sprint.map(s => {
+              if (typeof s === 'object' && s !== null) {
+                return s.id ? Number(s.id) : null;
+              } else if (typeof s === 'string' || typeof s === 'number') {
+                return Number(s);
+              }
+              return null;
+            }).filter(id => id != null);
+          } else if (typeof issue.fields.sprint === 'object' && issue.fields.sprint !== null) {
+            const sprintId = issue.fields.sprint.id ? Number(issue.fields.sprint.id) : null;
+            if (sprintId) {
+              sprintIds = [sprintId];
+            }
+          } else if (typeof issue.fields.sprint === 'string' || typeof issue.fields.sprint === 'number') {
+            sprintIds = [Number(issue.fields.sprint)];
+          }
+          
+          if (issue.key === 'ENG-2348' || issue.key === 'ENG-2337') {
+            console.log(`DEBUG ${issue.key}: extracted sprintIds:`, sprintIds);
+          }
+          
+          // Check if any sprint ID is in upcoming sprints
+          for (const sprintId of sprintIds) {
+            if (upcomingSprintIds.has(sprintId)) {
+              isInUpcomingSprint = true;
+            }
+          }
+          
+          // Fetch sprint details to find the most recent one (for display)
+          if (sprintIds.length > 0) {
+            const sprintDetails = await Promise.all(
+              sprintIds.map(async (sprintId) => {
+                // Use cached sprint if available, otherwise fetch
+                if (sprintMap.has(sprintId)) {
+                  return sprintMap.get(sprintId);
+                }
+                try {
+                  const sprintResponse = await jiraClient.get(`/rest/agile/1.0/sprint/${sprintId}`);
+                  return sprintResponse.data;
+                } catch (error) {
+                  return null;
+                }
+              })
+            );
+            
+            // Filter out nulls and find the sprint with the latest end date (or start date if no end date)
+            const validSprints = sprintDetails.filter(s => s);
+            if (validSprints.length > 0) {
+              const latestSprint = validSprints.sort((a, b) => {
+                const aDate = a.endDate ? moment(a.endDate) : (a.startDate ? moment(a.startDate) : moment(0));
+                const bDate = b.endDate ? moment(b.endDate) : (b.startDate ? moment(b.startDate) : moment(0));
+                return bDate.valueOf() - aDate.valueOf();
+              })[0];
+              
+              latestSprintName = latestSprint.name;
+              latestSprintId = latestSprint.id;
+              
+              if (issue.key === 'ENG-2348' || issue.key === 'ENG-2337') {
+                console.log(`DEBUG ${issue.key}: Found sprint: ${latestSprintName} (ID: ${latestSprintId})`);
+              }
+            }
+          }
+        }
+        
+        return {
+          ...issue,
+          latestSprintName: latestSprintName,
+          latestSprintId: latestSprintId,
+          isInUpcomingSprint: isInUpcomingSprint
+        };
+      })
+    );
+    
+    // 7. Process issues to calculate age with humanized format
+    const now = moment();
+    const processedIssues = issuesWithSprints.map(issue => {
+      const createdDate = moment(issue.fields.created);
+      const daysOld = now.diff(createdDate, 'days', true); // Use true for decimal precision
+      
+      // Humanize age format
+      let ageText;
+      if (daysOld < 7) {
+        ageText = `${Math.round(daysOld)} day${Math.round(daysOld) !== 1 ? 's' : ''}`;
+      } else if (daysOld < 30) {
+        const weeks = daysOld / 7;
+        ageText = `${weeks.toFixed(1)} week${weeks !== 1 ? 's' : ''}`;
+      } else if (daysOld < 365) {
+        const months = daysOld / 30;
+        ageText = `${months.toFixed(1)} month${months !== 1 ? 's' : ''}`;
+      } else {
+        const years = daysOld / 365;
+        ageText = `${years.toFixed(1)} year${years !== 1 ? 's' : ''}`;
+      }
+      
+      return {
+        key: issue.key,
+        summary: issue.fields.summary,
+        status: issue.fields.status.name,
+        created: createdDate.format('YYYY-MM-DD'),
+        createdFormatted: createdDate.format('MM/DD/YY'),
+        ageDays: daysOld,
+        ageText: ageText,
+        link: `https://${JIRA_HOST}/browse/${issue.key}`,
+        issueType: (issue.fields.issuetype?.name || 'Task').toLowerCase(),
+        sprintName: issue.latestSprintName || null,
+        isInUpcomingSprint: issue.isInUpcomingSprint
+      };
+    });
+    
+    // 8. Sort by creation date ascending (oldest first)
+    processedIssues.sort((a, b) => moment(a.created).valueOf() - moment(b.created).valueOf());
+    
+    // 9. Calculate stats
+    const totalIssues = processedIssues.length;
+    const ages = processedIssues.map(i => i.ageDays).sort((a, b) => a - b);
+    const minAge = ages.length > 0 ? ages[0] : 0;
+    const maxAge = ages.length > 0 ? ages[ages.length - 1] : 0;
+    const avgAge = ages.length > 0 ? ages.reduce((sum, age) => sum + age, 0) / ages.length : 0;
+    const medianAge = ages.length > 0 
+      ? (ages.length % 2 === 0 
+          ? (ages[ages.length / 2 - 1] + ages[ages.length / 2]) / 2 
+          : ages[Math.floor(ages.length / 2)])
+      : 0;
+    
+    // Format stats
+    const formatAge = (days) => {
+      if (days < 7) {
+        return `${Math.round(days)} day${Math.round(days) !== 1 ? 's' : ''}`;
+      } else if (days < 30) {
+        return `${(days / 7).toFixed(1)} week${(days / 7) !== 1 ? 's' : ''}`;
+      } else if (days < 365) {
+        return `${(days / 30).toFixed(1)} month${(days / 30) !== 1 ? 's' : ''}`;
+      } else {
+        return `${(days / 365).toFixed(1)} year${(days / 365) !== 1 ? 's' : ''}`;
+      }
+    };
+    
+    // Calculate age distribution
+    const distributionBuckets = [
+      { label: '0-7 days', min: 0, max: 7, count: 0 },
+      { label: '1-2 weeks', min: 7, max: 14, count: 0 },
+      { label: '2-4 weeks', min: 14, max: 30, count: 0 },
+      { label: '1-3 months', min: 30, max: 90, count: 0 },
+      { label: '3-6 months', min: 90, max: 180, count: 0 },
+      { label: '6-12 months', min: 180, max: 365, count: 0 },
+      { label: '1-2 years', min: 365, max: 730, count: 0 },
+      { label: '2+ years', min: 730, max: Infinity, count: 0 }
+    ];
+    
+    ages.forEach(age => {
+      for (const bucket of distributionBuckets) {
+        if (age >= bucket.min && age < bucket.max) {
+          bucket.count++;
+          break;
+        }
+      }
+    });
+    
+    const maxCount = Math.max(...distributionBuckets.map(b => b.count), 1);
+    
+    // 8. Generate HTML
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Backlog Report</title>
+        <link rel="icon" type="image/png" href="/img/favico.png">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 0 40px; background: #f4f5f7; color: #172B4D;}
+          .container { max-width: 1400px; margin: 0 auto; }
+          h1 { text-align: center; margin-bottom: 10px; }
+          .stats-section { background: white; padding: 15px 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin: 20px 0 30px; }
+          .stats-toggle { cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px; color: #172B4D; font-weight: 600; margin-bottom: 15px; user-select: none; }
+          .stats-toggle:hover { color: #0052CC; }
+          .stats-toggle-icon { transition: transform 0.2s; }
+          .stats-toggle-icon.collapsed { transform: rotate(-90deg); }
+          .stats-content { display: none; }
+          .stats-content.expanded { display: flex; gap: 30px; align-items: flex-start; }
+          .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; flex: 1; }
+          .stat-item { background: #F4F5F7; padding: 12px 16px; border-radius: 6px; text-align: center; }
+          .stat-label { font-size: 11px; color: #6B778C; text-transform: uppercase; margin-bottom: 6px; }
+          .stat-value { font-size: 20px; font-weight: 600; color: #172B4D; }
+          .distribution { flex: 1; }
+          .distribution-title { font-size: 12px; color: #6B778C; text-transform: uppercase; margin-bottom: 12px; font-weight: 600; }
+          .distribution-chart { display: flex; align-items: flex-end; gap: 6px; height: 180px; padding: 10px 0; }
+          .distribution-bar-container { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; }
+          .distribution-bar { width: 100%; background: #0052CC; border-radius: 4px 4px 0 0; min-height: 4px; position: relative; display: flex; flex-direction: column; justify-content: flex-end; transition: background 0.2s; }
+          .distribution-bar.empty { background: #EBECF0; }
+          .distribution-bar-value { font-size: 10px; color: #172B4D; font-weight: 600; text-align: center; margin-bottom: 4px; padding: 2px 0; }
+          .distribution-bar-label { font-size: 8px; color: #6B778C; margin-top: 6px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+          .issues-list { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 20px; }
+          .issue { padding: 16px; border-bottom: 1px solid #EBECF0; display: grid; grid-template-columns: 120px 1fr 150px 120px 120px 180px; gap: 20px; align-items: center; }
+          .issue:last-child { border-bottom: none; }
+          .issue:hover { background: #F4F5F7; }
+          .key { font-weight: bold; color: #0052CC; text-decoration: none; white-space: nowrap; }
+          .key:hover { text-decoration: underline; }
+          .summary-text { color: #172B4D; }
+          .status { display: inline-block; background: #EBECF0; padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap; }
+          .age { font-weight: 600; color: #172B4D; }
+          .created-date { font-size: 12px; color: #6B778C; }
+          .header-row { padding: 12px 16px; background: #F4F5F7; border-bottom: 2px solid #DFE1E6; font-weight: 600; font-size: 13px; color: #6B778C; text-transform: uppercase; display: grid; grid-template-columns: 120px 1fr 150px 120px 120px 180px; gap: 20px; }
+          .sprint-badge { display: inline-block; background: #E3FCEF; color: #006644; padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap; }
+          .sprint-badge.backlog { background: #EBECF0; color: #6B778C; }
+          .sprint-badge.upcoming { background: #FFF4E6; color: #974F00; }
+          .sprint-badge.current { background: #FFEBE6; color: #BF2600; }
+          .issue-type-badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: 500; text-transform: uppercase; margin-right: 8px; }
+          .issue-type-badge.bug { background: #FFEBE6; color: #BF2600; }
+          .issue-type-badge.story { background: #E3FCEF; color: #006644; }
+          .issue-type-badge.task { background: #DEEBFF; color: #0052CC; }
+          .issue-type-badge.epic { background: #EAE6FF; color: #403294; }
+          .issue-type-badge.subtask { background: #F4F5F7; color: #42526E; }
+          .issue-type-badge.spike { background: #FFF4E6; color: #974F00; }
+          .issue-type-badge.idea { background: #FFF4E6; color: #974F00; }
+          .nav-links { text-align: center; margin-bottom: 20px; font-size: 14px; color: #6B778C; }
+          .nav-links a { color: #0052CC; text-decoration: none; margin: 0 8px; }
+          .nav-links a:hover { text-decoration: underline; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="nav-links">
+            <a href="/">Home</a> | <a href="/slow">Slow Motion</a> | <a href="/done">Completed Tickets</a> | <a href="/backlog">Backlog</a>
+          </div>
+          <h1>BACKLOG REPORT</h1>
+          
+          <div class="stats-section">
+            <div class="stats-toggle" onclick="this.nextElementSibling.classList.toggle('expanded'); this.querySelector('.stats-toggle-icon').classList.toggle('collapsed');">
+              <span class="stats-toggle-icon collapsed">▼</span>
+              <span>Statistics & Distribution</span>
+            </div>
+            <div class="stats-content">
+              <div class="distribution">
+                <div class="distribution-title">Age Distribution</div>
+                <div class="distribution-chart">
+                  ${distributionBuckets.map(bucket => {
+                    const height = maxCount > 0 ? (bucket.count / maxCount) * 100 : 0;
+                    const isEmpty = bucket.count === 0;
+                    return `
+                      <div class="distribution-bar-container">
+                        <div class="distribution-bar ${isEmpty ? 'empty' : ''}" style="height: ${height}%;">
+                          ${!isEmpty ? `<div class="distribution-bar-value">${bucket.count}</div>` : ''}
+                        </div>
+                        <div class="distribution-bar-label">${bucket.label}</div>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              </div>
+              <div class="stats">
+                <div class="stat-item">
+                  <div class="stat-label">Total Issues</div>
+                  <div class="stat-value">${totalIssues}</div>
+                </div>
+                <div class="stat-item">
+                  <div class="stat-label">Min Age</div>
+                  <div class="stat-value">${formatAge(minAge)}</div>
+                </div>
+                <div class="stat-item">
+                  <div class="stat-label">Max Age</div>
+                  <div class="stat-value">${formatAge(maxAge)}</div>
+                </div>
+                <div class="stat-item">
+                  <div class="stat-label">Median Age</div>
+                  <div class="stat-value">${formatAge(medianAge)}</div>
+                </div>
+                <div class="stat-item">
+                  <div class="stat-label">Average Age</div>
+                  <div class="stat-value">${formatAge(avgAge)}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="issues-list">
+            <div class="header-row">
+              <div>Key</div>
+              <div>Summary</div>
+              <div>Status</div>
+              <div>Created</div>
+              <div>Sprint</div>
+              <div>Age</div>
+            </div>
+            <div class="issues-container">
+            ${processedIssues.map(issue => `
+              <div class="issue">
+                <div>
+                  <a href="${issue.link}" class="key" target="_blank">${issue.key}</a>
+                </div>
+                <div class="summary-text">
+                  <span class="issue-type-badge ${issue.issueType}">${issue.issueType}</span>
+                  ${issue.summary}
+                </div>
+                <div>
+                  <span class="status">${issue.status}</span>
+                </div>
+                <div>
+                  <div class="created-date">${issue.createdFormatted}</div>
+                </div>
+                <div>
+                  ${issue.sprintName 
+                    ? `<span class="sprint-badge ${issue.isInUpcomingSprint ? 'upcoming' : ''}">${issue.sprintName}</span>` 
+                    : '<span class="sprint-badge backlog">Backlog</span>'}
+                </div>
+                <div>
+                  <div class="age">${issue.ageText}</div>
+                </div>
+              </div>
+            `).join('')}
+            </div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    res.send(html);
+
+  } catch (error) {
+    console.error('Error in /backlog route:', error);
+    if (error.response) {
+      console.error('Response status:', error.response.status);
+      console.error('Response data:', JSON.stringify(error.response.data, null, 2));
+    }
+    res.status(error.response?.status || 500).send(`Error: ${error.message}${error.response ? ` (Status: ${error.response.status})` : ''}`);
   }
 });
 
