@@ -885,22 +885,17 @@ app.get('/done', async (req, res) => {
           // First, try to get resolution from resolution field (most reliable)
           if (issue.fields.resolution) {
             const resolutionName = issue.fields.resolution.name;
-            console.log(`Ticket ${issue.key}: Resolution field: "${resolutionName}"`);
-            // Resolution field might have different values, but status is more reliable
           }
           
           // Check current status - this is the most reliable
           if (issue.fields.status) {
             const currentStatus = issue.fields.status.name;
-            console.log(`Ticket ${issue.key}: Current status from API: "${currentStatus}"`);
-            // Check for exact match or case-insensitive match
             const statusLower = currentStatus.toLowerCase();
             if (statusLower === 'done') {
               resolutionStatus = 'Done';
             } else if (statusLower === "won't do" || statusLower === "wont do") {
               resolutionStatus = "Won't Do";
             }
-            console.log(`Ticket ${issue.key}: Resolution status set to: "${resolutionStatus}"`);
           }
           
           if (issue.fields.resolutiondate) {
@@ -913,7 +908,6 @@ app.get('/done', async (req, res) => {
                   if (item.field === 'status') {
                     const toStatus = item.toString;
                     const toStatusLower = toStatus ? toStatus.toLowerCase() : '';
-                    console.log(`Ticket ${issue.key}: Changelog status change to: "${toStatus}"`);
                     if (toStatusLower === 'done' || toStatusLower === "won't do" || toStatusLower === "wont do") {
                       doneDate = moment(history.created);
                       // Only set resolutionStatus from changelog if we don't already have it
@@ -924,7 +918,6 @@ app.get('/done', async (req, res) => {
                         } else {
                           resolutionStatus = "Won't Do";
                         }
-                        console.log(`Ticket ${issue.key}: Resolution status from changelog: "${resolutionStatus}"`);
                       }
                       break;
                     }
@@ -939,18 +932,12 @@ app.get('/done', async (req, res) => {
           // Default to Done if we couldn't determine
           if (!resolutionStatus) {
             resolutionStatus = 'Done';
-            console.log(`Ticket ${issue.key}: Defaulting resolution status to "Done"`);
           }
-          
-          console.log(`Ticket ${issue.key}: Final resolution status: "${resolutionStatus}"`);
           
           // Find the latest sprint this ticket was in
           let latestSprintId = null;
           let latestSprintName = null;
           let latestSprintEndDate = null;
-          
-          // Debug: log sprint field structure
-          console.log(`Ticket ${issue.key}: sprint field type: ${typeof issue.fields.sprint}, value:`, JSON.stringify(issue.fields.sprint));
           
           if (issue.fields.sprint) {
             let sprintIds = [];
@@ -970,7 +957,6 @@ app.get('/done', async (req, res) => {
             }
             
             if (sprintIds.length > 0) {
-              console.log(`Ticket ${issue.key}: Found sprint IDs:`, sprintIds);
               // Fetch sprint details to find the latest one by end date
               const sprintDetails = await Promise.all(
                 sprintIds.map(async (sprintId) => {
@@ -978,7 +964,6 @@ app.get('/done', async (req, res) => {
                     const sprintResponse = await jiraClient.get(`/rest/agile/1.0/sprint/${sprintId}`);
                     return sprintResponse.data;
                   } catch (error) {
-                    console.error(`Error fetching sprint ${sprintId} for ticket ${issue.key}:`, error.message);
                     return null;
                   }
                 })
@@ -991,15 +976,8 @@ app.get('/done', async (req, res) => {
                 latestSprintId = latestSprint.id;
                 latestSprintName = latestSprint.name;
                 latestSprintEndDate = moment(latestSprint.endDate);
-                console.log(`Ticket ${issue.key}: Latest sprint: ${latestSprintName} (ID: ${latestSprintId}, End: ${latestSprint.endDate})`);
-              } else {
-                console.log(`Ticket ${issue.key}: No valid sprints found with end dates`);
               }
-            } else {
-              console.log(`Ticket ${issue.key}: No sprint IDs extracted`);
             }
-          } else {
-            console.log(`Ticket ${issue.key}: No sprint field`);
           }
           
           return {
@@ -1253,7 +1231,6 @@ app.get('/backlog', async (req, res) => {
         }
       }
       
-      console.log(`Found ${currentSprintIds.size} current sprint(s) and ${upcomingSprintIds.size} upcoming sprint(s)`);
     } catch (error) {
       console.error('Error fetching sprints:', error.message);
     }
@@ -1285,7 +1262,6 @@ app.get('/backlog', async (req, res) => {
         startAt += issues.length;
         hasMore = startAt < total && issues.length > 0;
         
-        console.log(`Fetched ${issues.length} issues (${startAt}/${total} total)`);
       }
     } catch (error) {
       console.error('Error fetching from board, trying direct search:', error.message);
@@ -1309,7 +1285,6 @@ app.get('/backlog', async (req, res) => {
         startAt += issues.length;
         hasMore = startAt < total && issues.length > 0;
         
-        console.log(`Fetched ${issues.length} issues via direct search (${startAt}/${total} total)`);
       }
     }
     
@@ -1356,7 +1331,6 @@ app.get('/backlog', async (req, res) => {
         
         const batchIssues = searchResponse.data.issues || [];
         allIssues = allIssues.concat(batchIssues);
-        console.log(`Fetched batch ${Math.floor(i/batchSize) + 1}: ${batchIssues.length} issues`);
       } catch (error) {
         console.error(`Error fetching batch ${Math.floor(i/batchSize) + 1}:`, error.message);
         // Continue with other batches even if one fails
@@ -1364,12 +1338,6 @@ app.get('/backlog', async (req, res) => {
     }
     
     console.log(`Fetched ${allIssues.length} total open issues (out of ${issueKeys.length} keys)`);
-    
-    // Debug: log a sample issue's sprint field structure
-    if (allIssues.length > 0) {
-      const sampleIssue = allIssues.find(i => i.fields.sprint) || allIssues[0];
-      console.log(`Sample issue ${sampleIssue.key} sprint field:`, JSON.stringify(sampleIssue.fields.sprint, null, 2));
-    }
     
     // 4. Get all issues in current AND upcoming sprints using board API (more reliable)
     const issuesInCurrentOrUpcomingSprints = new Set();
@@ -1388,7 +1356,6 @@ app.get('/backlog', async (req, res) => {
           const sprintIssueKeys = (sprintIssuesResponse.data.issues || []).map(i => i.key);
           sprintIssueKeys.forEach(key => issuesInCurrentOrUpcomingSprints.add(key));
           const sprintName = sprintMap.get(sprintId)?.name || sprintId;
-          console.log(`Found ${sprintIssueKeys.length} issues in sprint ${sprintName} (${sprintId}) via board API`);
         } catch (error) {
           console.error(`Error fetching issues in sprint ${sprintId}:`, error.message);
         }
@@ -1416,19 +1383,12 @@ app.get('/backlog', async (req, res) => {
       // Note: Issues in PAST sprints are kept (they're now in backlog)
       if (issuesInCurrentOrUpcomingSprints.has(issue.key)) {
         inSprintExcluded++;
-        if (issue.key === 'ENG-2348' || issue.key === 'ENG-2337') {
-          console.log(`DEBUG: Excluding ${issue.key} - found in current/upcoming sprint via board API`);
-        }
         return false;
       }
       
       return true;
     });
     
-    console.log(`Epics excluded: ${epicsExcluded}`);
-    console.log(`Subtasks excluded: ${subtasksExcluded}`);
-    console.log(`Issues in current/upcoming sprints excluded: ${inSprintExcluded}`);
-    console.log(`After filtering: ${filteredIssues.length} backlog issues`);
     
     // 6. For each issue, find the most recent sprint it's in (for display purposes)
     const issuesWithSprints = await Promise.all(
@@ -1436,12 +1396,6 @@ app.get('/backlog', async (req, res) => {
         let latestSprintName = null;
         let latestSprintId = null;
         let isInUpcomingSprint = false;
-        
-        // Debug specific issues
-        if (issue.key === 'ENG-2348' || issue.key === 'ENG-2337') {
-          console.log(`DEBUG ${issue.key}: sprint field type: ${typeof issue.fields.sprint}`);
-          console.log(`DEBUG ${issue.key}: sprint field:`, JSON.stringify(issue.fields.sprint, null, 2));
-        }
         
         if (issue.fields.sprint) {
           let sprintIds = [];
@@ -1463,10 +1417,6 @@ app.get('/backlog', async (req, res) => {
             }
           } else if (typeof issue.fields.sprint === 'string' || typeof issue.fields.sprint === 'number') {
             sprintIds = [Number(issue.fields.sprint)];
-          }
-          
-          if (issue.key === 'ENG-2348' || issue.key === 'ENG-2337') {
-            console.log(`DEBUG ${issue.key}: extracted sprintIds:`, sprintIds);
           }
           
           // Check if any sprint ID is in upcoming sprints
@@ -1504,10 +1454,6 @@ app.get('/backlog', async (req, res) => {
               
               latestSprintName = latestSprint.name;
               latestSprintId = latestSprint.id;
-              
-              if (issue.key === 'ENG-2348' || issue.key === 'ENG-2337') {
-                console.log(`DEBUG ${issue.key}: Found sprint: ${latestSprintName} (ID: ${latestSprintId})`);
-              }
             }
           }
         }
@@ -1533,13 +1479,28 @@ app.get('/backlog', async (req, res) => {
         ageText = `${Math.round(daysOld)} day${Math.round(daysOld) !== 1 ? 's' : ''}`;
       } else if (daysOld < 30) {
         const weeks = daysOld / 7;
-        ageText = `${weeks.toFixed(1)} week${weeks !== 1 ? 's' : ''}`;
+        const weeksRounded = parseFloat(weeks.toFixed(1));
+        if (weeksRounded === 1.0) {
+          ageText = '1 week';
+        } else {
+          ageText = `${weeks.toFixed(1)} week${weeksRounded !== 1 ? 's' : ''}`;
+        }
       } else if (daysOld < 365) {
         const months = daysOld / 30;
-        ageText = `${months.toFixed(1)} month${months !== 1 ? 's' : ''}`;
+        const monthsRounded = parseFloat(months.toFixed(1));
+        if (monthsRounded === 1.0) {
+          ageText = '1 month';
+        } else {
+          ageText = `${months.toFixed(1)} month${monthsRounded !== 1 ? 's' : ''}`;
+        }
       } else {
         const years = daysOld / 365;
-        ageText = `${years.toFixed(1)} year${years !== 1 ? 's' : ''}`;
+        const yearsRounded = parseFloat(years.toFixed(1));
+        if (yearsRounded === 1.0) {
+          ageText = '1 year';
+        } else {
+          ageText = `${years.toFixed(1)} year${yearsRounded !== 1 ? 's' : ''}`;
+        }
       }
       
       return {
@@ -1577,11 +1538,26 @@ app.get('/backlog', async (req, res) => {
       if (days < 7) {
         return `${Math.round(days)} day${Math.round(days) !== 1 ? 's' : ''}`;
       } else if (days < 30) {
-        return `${(days / 7).toFixed(1)} week${(days / 7) !== 1 ? 's' : ''}`;
+        const weeks = days / 7;
+        const weeksRounded = parseFloat(weeks.toFixed(1));
+        if (weeksRounded === 1.0) {
+          return '1 week';
+        }
+        return `${weeks.toFixed(1)} week${weeksRounded !== 1 ? 's' : ''}`;
       } else if (days < 365) {
-        return `${(days / 30).toFixed(1)} month${(days / 30) !== 1 ? 's' : ''}`;
+        const months = days / 30;
+        const monthsRounded = parseFloat(months.toFixed(1));
+        if (monthsRounded === 1.0) {
+          return '1 month';
+        }
+        return `${months.toFixed(1)} month${monthsRounded !== 1 ? 's' : ''}`;
       } else {
-        return `${(days / 365).toFixed(1)} year${(days / 365) !== 1 ? 's' : ''}`;
+        const years = days / 365;
+        const yearsRounded = parseFloat(years.toFixed(1));
+        if (yearsRounded === 1.0) {
+          return '1 year';
+        }
+        return `${years.toFixed(1)} year${yearsRounded !== 1 ? 's' : ''}`;
       }
     };
     
