@@ -1080,6 +1080,9 @@ app.get('/done', async (req, res) => {
       return bNum - aNum;
     });
     
+    // Get all unique assignees for the filter
+    const allAssignees = [...new Set(processedIssues.map(issue => issue.assignee))].sort();
+    
     // Generate HTML
     const html = `
       <!DOCTYPE html>
@@ -1121,7 +1124,60 @@ app.get('/done', async (req, res) => {
           .nav-links { text-align: center; margin-bottom: 20px; font-size: 14px; color: #6B778C; }
           .nav-links a { color: #0052CC; text-decoration: none; margin: 0 8px; }
           .nav-links a:hover { text-decoration: underline; }
+          .filter-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; padding: 15px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+          .filter-label { display: inline-block; padding: 6px 12px; background: #EBECF0; color: #172B4D; border-radius: 4px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
+          .filter-label:hover { background: #DFE1E6; }
+          .filter-label.active { background: #0052CC; color: white; }
+          .filter-label.all { background: #DFE1E6; font-weight: 500; }
+          .filter-label.all.active { background: #172B4D; color: white; }
+          .ticket.hidden { display: none; }
         </style>
+        <script>
+          function filterByAssignee(assignee, event) {
+            // Update active state
+            document.querySelectorAll('.filter-label').forEach(label => {
+              label.classList.remove('active');
+            });
+            if (event && event.target) {
+              event.target.classList.add('active');
+            } else {
+              // Fallback: find label by data-filter attribute
+              const filterValue = assignee === 'all' ? 'all' : assignee.replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+              const label = document.querySelector('.filter-label[data-filter="' + filterValue + '"]');
+              if (label) label.classList.add('active');
+            }
+            
+            // Filter tickets
+            const tickets = document.querySelectorAll('.ticket');
+            tickets.forEach(ticket => {
+              if (assignee === 'all') {
+                ticket.classList.remove('hidden');
+              } else {
+                const ticketAssignee = ticket.getAttribute('data-assignee');
+                // Compare decoded values
+                const decodedAssignee = assignee.replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+                const decodedTicketAssignee = ticketAssignee.replace(/&quot;/g, '"');
+                if (decodedTicketAssignee === decodedAssignee) {
+                  ticket.classList.remove('hidden');
+                } else {
+                  ticket.classList.add('hidden');
+                }
+              }
+            });
+            
+            // Update ticket count in summary
+            updateTicketCount();
+          }
+          
+          function updateTicketCount() {
+            const visibleTickets = document.querySelectorAll('.ticket:not(.hidden)').length;
+            const summaryElement = document.querySelector('.summary');
+            if (summaryElement) {
+              const periodLabel = '${periodLabel}';
+              summaryElement.textContent = visibleTickets + ' ticket' + (visibleTickets !== 1 ? 's' : '') + ' completed in ' + periodLabel;
+            }
+          }
+        </script>
       </head>
       <body>
         <div class="container">
@@ -1139,6 +1195,15 @@ app.get('/done', async (req, res) => {
           </div>
           <p class="summary">${processedIssues.length} ticket${processedIssues.length !== 1 ? 's' : ''} completed in ${periodLabel}</p>
           
+          <div class="filter-bar">
+            <span class="filter-label all active" data-filter="all" onclick="filterByAssignee('all', event)">All</span>
+            ${allAssignees.map(assignee => {
+              const escapedAssignee = assignee.replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+              const jsSafeAssignee = assignee.replace(/'/g, "\\'").replace(/"/g, '\\"');
+              return `<span class="filter-label" data-filter="${escapedAssignee}" onclick="filterByAssignee('${jsSafeAssignee}', event)">${assignee}</span>`;
+            }).join('')}
+          </div>
+          
           <div class="tickets-list">
             <div class="header-row">
               <div>Key</div>
@@ -1149,7 +1214,7 @@ app.get('/done', async (req, res) => {
             </div>
             <div class="tickets-container">
             ${processedIssues.map(issue => `
-              <div class="ticket">
+              <div class="ticket" data-assignee="${issue.assignee.replace(/"/g, '&quot;')}">
                 <div>
                   <a href="${issue.link}" class="key" target="_blank">${issue.key}</a>
                 </div>
