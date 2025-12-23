@@ -1862,7 +1862,7 @@ app.get('/backlog', async (req, res) => {
         const searchResponse = await jiraClient.post(`/rest/api/3/search/jql`, {
           jql: `key in (${batchKeys.join(',')})`,
           maxResults: batchSize,
-          fields: ['summary', 'status', 'created', 'issuetype', 'sprint']
+          fields: ['summary', 'status', 'created', 'issuetype', 'reporter']
         });
         
         const batchIssues = searchResponse.data.issues || [];
@@ -2049,8 +2049,7 @@ app.get('/backlog', async (req, res) => {
         ageText: ageText,
         link: `https://${JIRA_HOST}/browse/${issue.key}`,
         issueType: (issue.fields.issuetype?.name || 'Task').toLowerCase(),
-        sprintName: issue.latestSprintName || null,
-        isInUpcomingSprint: issue.isInUpcomingSprint
+        reporter: issue.fields.reporter ? issue.fields.reporter.displayName : 'Unknown'
       };
     });
     
@@ -2158,6 +2157,7 @@ app.get('/backlog', async (req, res) => {
           .key:hover { text-decoration: underline; }
           .summary-text { color: #172B4D; }
           .status { display: inline-block; background: #EBECF0; padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap; }
+          .reporter { display: inline-block; background: #EBECF0; padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap; }
           .age { font-weight: 600; color: #172B4D; }
           .created-date { font-size: 12px; color: #6B778C; }
           .header-row { padding: 12px 16px; background: #F4F5F7; border-bottom: 2px solid #DFE1E6; font-weight: 600; font-size: 13px; color: #6B778C; text-transform: uppercase; display: grid; grid-template-columns: 120px 1fr 150px 120px 120px 180px; gap: 20px; }
@@ -2239,7 +2239,7 @@ app.get('/backlog', async (req, res) => {
               <div>Summary</div>
               <div>Status</div>
               <div>Created</div>
-              <div>Sprint</div>
+              <div>Reporter</div>
               <div>Age</div>
             </div>
             <div class="issues-container">
@@ -2259,9 +2259,7 @@ app.get('/backlog', async (req, res) => {
                   <div class="created-date">${issue.createdFormatted}</div>
                 </div>
                 <div>
-                  ${issue.sprintName 
-                    ? `<span class="sprint-badge ${issue.isInUpcomingSprint ? 'upcoming' : ''}">${issue.sprintName}</span>` 
-                    : '<span class="sprint-badge backlog">Backlog</span>'}
+                  <span class="reporter">${issue.reporter}</span>
                 </div>
                 <div>
                   <div class="age">${issue.ageText}</div>
