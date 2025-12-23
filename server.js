@@ -139,7 +139,7 @@ app.get('/', (req, res) => {
               this week, this month, or last month. Tickets are grouped by assignee and 
               sorted by completion time.
             </p>
-            <a href="/done" class="route-link">View Completed Tickets</a>
+            <a href="/done" class="route-link">View Completed</a>
           </div>
           
           <div class="route-card">
@@ -150,7 +150,18 @@ app.get('/', (req, res) => {
               its current status, and how long it's been open. Age is displayed in a human-readable format. 
               Includes statistics showing total issues, median age, and average age.
             </p>
-            <a href="/backlog" class="route-link">View Backlog Report</a>
+            <a href="/backlog" class="route-link">View Backlog</a>
+          </div>
+          
+          <div class="route-card">
+            <div class="icon">📊</div>
+            <h2>PROGRESS</h2>
+            <p>
+              Track recent progress by viewing issues that have changed status in a selected time period. 
+              See where issues started and where they are now, along with assignee and priority changes. 
+              Filter by today, yesterday, this week, this month, or last month.
+            </p>
+            <a href="/progress" class="route-link">View Progress</a>
           </div>
         </div>
       </div>
@@ -639,7 +650,7 @@ app.get('/slow', async (req, res) => {
       <body>
         <div class="container">
           <div class="nav-links">
-            <a href="/">Home</a> | <a href="/slow">Slow Motion</a> | <a href="/done">Completed Tickets</a> | <a href="/backlog">Backlog</a>
+            <a href="/">Home</a> | <a href="/slow">Slow Motion</a> | <a href="/done">Completed</a> | <a href="/backlog">Backlog</a> | <a href="/progress">Progress</a>
           </div>
           <h1>SLOW MOTION</h1>
           <p style="text-align: center; color: #6B778C; margin-bottom: 30px; font-size: 14px;">
@@ -815,7 +826,7 @@ app.get('/done', async (req, res) => {
             </style>
           </head>
           <body>
-            <h1>Completed Tickets</h1>
+            <h1>Completed</h1>
             <div class="period-selector">
               <a href="/done?period=today" class="${period === 'today' ? 'active' : ''}">Today</a>
               <a href="/done?period=yesterday" class="${period === 'yesterday' ? 'active' : ''}">Yesterday</a>
@@ -856,7 +867,7 @@ app.get('/done', async (req, res) => {
             </style>
           </head>
           <body>
-            <h1>Completed Tickets</h1>
+            <h1>Completed</h1>
             <div class="period-selector">
               <a href="/done?period=today" class="${period === 'today' ? 'active' : ''}">Today</a>
               <a href="/done?period=yesterday" class="${period === 'yesterday' ? 'active' : ''}">Yesterday</a>
@@ -1182,7 +1193,7 @@ app.get('/done', async (req, res) => {
       <body>
         <div class="container">
           <div class="nav-links">
-            <a href="/">Home</a> | <a href="/slow">Slow Motion</a> | <a href="/done">Completed Tickets</a> | <a href="/backlog">Backlog</a>
+            <a href="/">Home</a> | <a href="/slow">Slow Motion</a> | <a href="/done">Completed</a> | <a href="/backlog">Backlog</a> | <a href="/progress">Progress</a>
           </div>
           <h1>COMPLETED TICKETS</h1>
           <div class="period-selector">
@@ -1234,6 +1245,466 @@ app.get('/done', async (req, res) => {
                 </div>
               </div>
             `).join('')}
+            </div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    res.send(html);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(`Error: ${error.message}`);
+  }
+});
+
+app.get('/progress', async (req, res) => {
+  try {
+    const period = req.query.period || 'last-7-days'; // today, yesterday, this-week, last-7-days, this-month, last-month
+    const days = req.query.days ? parseInt(req.query.days) : null; // Optional: custom number of days
+    
+    // Calculate date ranges based on period
+    let startDate, endDate, periodLabel;
+    const now = moment();
+    
+    if (days && days > 0) {
+      startDate = moment().subtract(days - 1, 'days').startOf('day');
+      endDate = moment().endOf('day');
+      periodLabel = `Last ${days} Days`;
+    } else {
+      switch (period) {
+        case 'today':
+          startDate = moment().startOf('day');
+          endDate = moment().endOf('day');
+          periodLabel = 'Today';
+          break;
+        case 'yesterday':
+          startDate = moment().subtract(1, 'day').startOf('day');
+          endDate = moment().subtract(1, 'day').endOf('day');
+          periodLabel = 'Yesterday';
+          break;
+        case 'this-week':
+          startDate = moment().startOf('week');
+          endDate = moment().endOf('week');
+          periodLabel = 'This Week';
+          break;
+        case 'last-7-days':
+          startDate = moment().subtract(6, 'days').startOf('day');
+          endDate = moment().endOf('day');
+          periodLabel = 'Last 7 Days';
+          break;
+        case 'this-month':
+          startDate = moment().startOf('month');
+          endDate = moment().endOf('month');
+          periodLabel = 'This Month';
+          break;
+        case 'last-month':
+          startDate = moment().subtract(1, 'month').startOf('month');
+          endDate = moment().subtract(1, 'month').endOf('month');
+          periodLabel = 'Last Month';
+          break;
+        default:
+          startDate = moment().subtract(6, 'days').startOf('day');
+          endDate = moment().endOf('day');
+          periodLabel = 'Last 7 Days';
+      }
+    }
+    
+    // Build JQL query for issues updated in the time period (include all statuses)
+    // Use start of day for start date and start of next day for end date to capture full day range
+    // Jira's updated field is datetime, so we need to ensure we get the full day
+    const startDateStr = startDate.format('YYYY-MM-DD');
+    const endDateNextDay = endDate.clone().add(1, 'day').format('YYYY-MM-DD');
+    const jqlQuery = `updated >= "${startDateStr}" AND updated < "${endDateNextDay}"`;
+    
+    // Fetch issues from board
+    let issueKeys = [];
+    try {
+      const boardResponse = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}/issue`, {
+        params: {
+          jql: jqlQuery,
+          fields: 'key',
+          maxResults: 200
+        }
+      });
+      issueKeys = (boardResponse.data.issues || []).map(i => i.key);
+    } catch (error) {
+      console.error('Error fetching from board, trying direct search:', error.message);
+      // Fallback: try direct search
+      const searchResponse = await jiraClient.post(`/rest/api/3/search/jql`, {
+        jql: jqlQuery,
+        maxResults: 200,
+        fields: ['key']
+      });
+      issueKeys = (searchResponse.data.issues || []).map(i => i.key);
+    }
+    
+    console.log(`Found ${issueKeys.length} updated issues for ${periodLabel}`);
+    
+    if (issueKeys.length === 0) {
+      return res.send(`
+        <html>
+          <head>
+            <title>Progress Report</title>
+            <link rel="icon" type="image/png" href="/img/favico.png">
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 40px; background: #f4f5f7; text-align: center; }
+              h1 { color: #172B4D; }
+              .nav-links { text-align: center; margin-bottom: 20px; font-size: 14px; color: #6B778C; }
+              .nav-links a { color: #0052CC; text-decoration: none; margin: 0 8px; }
+              .nav-links a:hover { text-decoration: underline; }
+              .period-selector { margin: 20px 0; }
+              .period-selector a { display: inline-block; padding: 8px 16px; margin: 0 4px; background: #EBECF0; color: #172B4D; text-decoration: none; border-radius: 4px; }
+              .period-selector a.active { background: #0052CC; color: white; }
+            </style>
+          </head>
+          <body>
+            <div class="nav-links">
+              <a href="/">Home</a> | <a href="/slow">Slow Motion</a> | <a href="/done">Completed</a> | <a href="/backlog">Backlog</a> | <a href="/progress">Progress</a>
+            </div>
+            <h1>Progress</h1>
+            <div class="period-selector">
+              <a href="/progress?period=today" class="${period === 'today' ? 'active' : ''}">Today</a>
+              <a href="/progress?period=yesterday" class="${period === 'yesterday' ? 'active' : ''}">Yesterday</a>
+              <a href="/progress?period=this-week" class="${period === 'this-week' ? 'active' : ''}">This Week</a>
+              <a href="/progress?period=last-7-days" class="${period === 'last-7-days' ? 'active' : ''}">Last 7 Days</a>
+              <a href="/progress?period=this-month" class="${period === 'this-month' ? 'active' : ''}">This Month</a>
+              <a href="/progress?period=last-month" class="${period === 'last-month' ? 'active' : ''}">Last Month</a>
+            </div>
+            <p style="color: #6B778C; margin-top: 40px;">No issues with changes found for ${periodLabel}</p>
+          </body>
+        </html>
+      `);
+    }
+    
+    // Bulk fetch details with changelog
+    const searchResponse = await jiraClient.post(`/rest/api/3/search/jql`, {
+      jql: `key in (${issueKeys.join(',')})`,
+      maxResults: 200,
+      fields: ['summary', 'status', 'assignee', 'priority', 'created', 'updated', 'issuetype', 'reporter']
+    });
+    
+    const issues = searchResponse.data.issues || [];
+    console.log(`Fetched ${issues.length} issues for ${periodLabel}`);
+    
+    // Fetch changelog for each issue to analyze transitions
+    const issuesWithChangelog = await Promise.all(
+      issues.map(async (issue) => {
+        try {
+          const changelogResponse = await jiraClient.get(`/rest/api/3/issue/${issue.key}/changelog`).catch(() => ({ data: { values: [] } }));
+          const histories = changelogResponse.data.values || [];
+          
+          return {
+            ...issue,
+            changelog: { histories: histories }
+          };
+        } catch (error) {
+          return {
+            ...issue,
+            changelog: { histories: [] }
+          };
+        }
+      })
+    );
+    
+    // Process issues to find status transitions, assignee changes, and priority changes
+    const processedIssues = issuesWithChangelog
+      .map(issue => {
+        const histories = issue.changelog?.histories || [];
+        const currentStatus = issue.fields.status.name;
+        const currentAssignee = issue.fields.assignee ? issue.fields.assignee.displayName : 'Unassigned';
+        const currentPriority = issue.fields.priority ? issue.fields.priority.name : 'Unset';
+        const currentIssueType = issue.fields.issuetype?.name || 'Task';
+        const reporter = issue.fields.reporter ? issue.fields.reporter.displayName : 'Unknown';
+        
+        // Find all status transitions within the time period
+        const statusTransitions = [];
+        const assigneeChanges = [];
+        const priorityChanges = [];
+        const issueTypeChanges = [];
+        
+        // Track initial values (before the period)
+        let initialStatus = currentStatus;
+        let initialAssignee = currentAssignee;
+        let initialPriority = currentPriority;
+        let initialIssueType = currentIssueType;
+        
+        // Sort histories by date (oldest first)
+        const sortedHistories = [...histories].sort((a, b) => moment(a.created).valueOf() - moment(b.created).valueOf());
+        
+        // Find the status/assignee/priority/issuetype at the start of the period
+        // Walk through all histories before the period to find the state at period start
+        for (const history of sortedHistories) {
+          const historyDate = moment(history.created);
+          if (historyDate.isBefore(startDate)) {
+            // This change happened before our period, update initial values
+            if (history.items && Array.isArray(history.items)) {
+              history.items.forEach(item => {
+                if (item.field === 'status') {
+                  initialStatus = item.toString || initialStatus;
+                } else if (item.field === 'assignee') {
+                  initialAssignee = item.toString || initialAssignee;
+                } else if (item.field === 'priority') {
+                  initialPriority = item.toString || initialPriority;
+                } else if (item.field === 'issuetype') {
+                  initialIssueType = item.toString || initialIssueType;
+                }
+              });
+            }
+          }
+        }
+        
+        // If issue was created during the period, use the first transition's "from" status as initial
+        const createdDate = moment(issue.fields.created);
+        if (createdDate.isSameOrAfter(startDate) && statusTransitions.length > 0) {
+          initialStatus = statusTransitions[0].fromStatus || initialStatus;
+        }
+        
+        // Now find changes within the period
+        for (const history of sortedHistories) {
+          const historyDate = moment(history.created);
+          
+          // Only process changes within our time period
+          if (historyDate.isSameOrAfter(startDate) && historyDate.isSameOrBefore(endDate)) {
+            if (history.items && Array.isArray(history.items)) {
+              history.items.forEach(item => {
+                if (item.field === 'status') {
+                  const fromStatus = item.fromString || 'Unknown';
+                  const toStatus = item.toString || 'Unknown';
+                  // Only track if status actually changed
+                  if (fromStatus !== toStatus) {
+                    statusTransitions.push({
+                      date: historyDate,
+                      fromStatus: fromStatus,
+                      toStatus: toStatus
+                    });
+                  }
+                } else if (item.field === 'assignee') {
+                  assigneeChanges.push({
+                    date: historyDate,
+                    from: item.fromString || 'Unassigned',
+                    to: item.toString || 'Unassigned'
+                  });
+                } else if (item.field === 'priority') {
+                  priorityChanges.push({
+                    date: historyDate,
+                    from: item.fromString || 'Unset',
+                    to: item.toString || 'Unset'
+                  });
+                } else if (item.field === 'issuetype') {
+                  issueTypeChanges.push({
+                    date: historyDate,
+                    from: item.fromString || 'Task',
+                    to: item.toString || 'Task'
+                  });
+                }
+              });
+            }
+          }
+        }
+        
+        // Check for any changes (status, assignee, priority, or type)
+        const hasStatusChange = statusTransitions.length > 0 && initialStatus !== currentStatus;
+        const hasAssigneeChange = assigneeChanges.length > 0 || initialAssignee !== currentAssignee;
+        const hasPriorityChange = priorityChanges.length > 0 || initialPriority !== currentPriority;
+        const hasIssueTypeChange = issueTypeChanges.length > 0 || initialIssueType !== currentIssueType;
+        
+        // Include issue if ANY change occurred
+        const hasAnyChange = hasStatusChange || hasAssigneeChange || hasPriorityChange || hasIssueTypeChange;
+        
+        // Determine start and end status
+        // Start status: what it was at the beginning of the period
+        // End status: what it is now (current status)
+        // This way, if an issue went through multiple transitions, we show the overall change
+        const startStatus = initialStatus;
+        const endStatus = currentStatus;
+        const transitionDate = statusTransitions.length > 0 
+          ? statusTransitions[statusTransitions.length - 1].date 
+          : null;
+        
+        // Get issue type
+        const issueType = issue.fields.issuetype?.name || 'Task';
+        const issueTypeLower = issueType.toLowerCase();
+        const initialIssueTypeLower = initialIssueType.toLowerCase();
+        
+        return {
+          key: issue.key,
+          summary: issue.fields.summary,
+          startStatus: startStatus,
+          endStatus: endStatus,
+          hasStatusChange: hasStatusChange,
+          hasAssigneeChange: hasAssigneeChange,
+          hasPriorityChange: hasPriorityChange,
+          hasIssueTypeChange: hasIssueTypeChange,
+          hasAnyChange: hasAnyChange,
+          statusTransitions: statusTransitions,
+          assigneeChanges: assigneeChanges,
+          priorityChanges: priorityChanges,
+          issueTypeChanges: issueTypeChanges,
+          initialAssignee: initialAssignee,
+          currentAssignee: currentAssignee,
+          initialPriority: initialPriority,
+          currentPriority: currentPriority,
+          initialIssueType: initialIssueTypeLower,
+          currentIssueType: issueTypeLower,
+          reporter: reporter,
+          transitionDate: transitionDate,
+          updated: moment(issue.fields.updated),
+          link: `https://${JIRA_HOST}/browse/${issue.key}`,
+          issueType: issueTypeLower
+        };
+      })
+      // Filter to include issues with ANY change (status, assignee, priority, or type)
+      .filter(issue => issue.hasAnyChange)
+      // Sort by transition date (most recent first)
+      .sort((a, b) => {
+        const aDate = a.transitionDate || a.updated;
+        const bDate = b.transitionDate || b.updated;
+        return bDate.valueOf() - aDate.valueOf();
+      });
+    
+    console.log(`Found ${processedIssues.length} issues with status changes for ${periodLabel}`);
+    
+    // Generate HTML
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Progress Report - ${periodLabel}</title>
+        <link rel="icon" type="image/png" href="/img/favico.png">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 0 40px; background: #f4f5f7; color: #172B4D;}
+          .container { max-width: 1600px; margin: 0 auto; }
+          h1 { text-align: center; margin-bottom: 10px; }
+          .period-selector { display: flex; justify-content: center; gap: 8px; margin: 20px 0 30px; flex-wrap: wrap; }
+          .period-selector a { display: inline-block; padding: 8px 16px; background: #EBECF0; color: #172B4D; text-decoration: none; border-radius: 4px; font-size: 14px; transition: all 0.2s; }
+          .period-selector a:hover { background: #DFE1E6; }
+          .period-selector a.active { background: #0052CC; color: white; }
+          .summary { text-align: center; color: #6B778C; margin-bottom: 30px; font-size: 14px; }
+          .tickets-list { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 20px; }
+          .ticket { padding: 16px; border-bottom: 1px solid #EBECF0; display: grid; grid-template-columns: 120px minmax(200px, 1fr) 150px 150px minmax(250px, 1fr); gap: 20px; align-items: start; }
+          .ticket:last-child { border-bottom: none; }
+          .ticket:hover { background: #F4F5F7; }
+          .key { font-weight: bold; color: #0052CC; text-decoration: none; white-space: nowrap; }
+          .key:hover { text-decoration: underline; }
+          .summary-text { color: #172B4D; font-size: 15px; max-width: 100%; word-wrap: break-word; overflow-wrap: break-word; }
+          .changes-column { font-size: 13px; line-height: 1.6; }
+          .change-item { margin-bottom: 6px; }
+          .change-item:last-child { margin-bottom: 0; }
+          .change-item strong { color: #172B4D; font-weight: 600; margin-right: 4px; }
+          .status-badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; white-space: nowrap; }
+          .status-badge.from { background: #FFEBE6; color: #BF2600; }
+          .status-badge.to { background: #E3FCEF; color: #006644; }
+          .status-arrow { color: #6B778C; font-size: 14px; margin: 0 4px; }
+          .assignee-change, .priority-change, .type-change { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 11px; white-space: nowrap; }
+          .assignee-change { background: #DEEBFF; color: #0052CC; }
+          .priority-change { background: #FFF4E6; color: #974F00; }
+          .type-change { background: #EAE6FF; color: #403294; }
+          .assignee, .reporter { display: inline-block; background: #EBECF0; padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap; }
+          .header-row { padding: 12px 16px; background: #F4F5F7; border-bottom: 2px solid #DFE1E6; font-weight: 600; font-size: 13px; color: #6B778C; text-transform: uppercase; display: grid; grid-template-columns: 120px minmax(200px, 1fr) 150px 150px minmax(250px, 1fr); gap: 20px; }
+          .issue-type-badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: 500; text-transform: uppercase; margin-right: 8px; }
+          .issue-type-badge.bug { background: #FFEBE6; color: #BF2600; }
+          .issue-type-badge.story { background: #E3FCEF; color: #006644; }
+          .issue-type-badge.task { background: #DEEBFF; color: #0052CC; }
+          .issue-type-badge.epic { background: #EAE6FF; color: #403294; }
+          .issue-type-badge.subtask { background: #F4F5F7; color: #42526E; }
+          .issue-type-badge.spike { background: #FFF4E6; color: #974F00; }
+          .issue-type-badge.idea { background: #FFF4E6; color: #974F00; }
+          .nav-links { text-align: center; margin-bottom: 20px; font-size: 14px; color: #6B778C; }
+          .nav-links a { color: #0052CC; text-decoration: none; margin: 0 8px; }
+          .nav-links a:hover { text-decoration: underline; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="nav-links">
+            <a href="/">Home</a> | <a href="/slow">Slow Motion</a> | <a href="/done">Completed</a> | <a href="/backlog">Backlog</a> | <a href="/progress">Progress</a>
+          </div>
+          <h1>PROGRESS REPORT</h1>
+          <div class="period-selector">
+            <a href="/progress?period=today" class="${period === 'today' ? 'active' : ''}">Today</a>
+            <a href="/progress?period=yesterday" class="${period === 'yesterday' ? 'active' : ''}">Yesterday</a>
+            <a href="/progress?period=this-week" class="${period === 'this-week' ? 'active' : ''}">This Week</a>
+            <a href="/progress?period=last-7-days" class="${period === 'last-7-days' ? 'active' : ''}">Last 7 Days</a>
+            <a href="/progress?period=this-month" class="${period === 'this-month' ? 'active' : ''}">This Month</a>
+            <a href="/progress?period=last-month" class="${period === 'last-month' ? 'active' : ''}">Last Month</a>
+          </div>
+          <p class="summary">${processedIssues.length} issue${processedIssues.length !== 1 ? 's' : ''} with changes in ${periodLabel}</p>
+          
+          <div class="tickets-list">
+            <div class="header-row">
+              <div>Key</div>
+              <div>Summary</div>
+              <div>Assignee</div>
+              <div>Reporter</div>
+              <div>Changes</div>
+            </div>
+            <div class="tickets-container">
+            ${processedIssues.map(issue => {
+              // Build all changes in order: Status, Assignee, Priority, Type
+              const allChanges = [];
+              
+              // Format status change - show start → end (overall change)
+              if (issue.hasStatusChange) {
+                allChanges.push(`<div class="change-item"><strong>Status:</strong> <span class="status-badge from">${issue.startStatus}</span><span class="status-arrow">→</span><span class="status-badge to">${issue.endStatus}</span></div>`);
+              }
+              
+              // Format assignee changes - show ALL changes that happened during the period
+              if (issue.assigneeChanges.length > 0) {
+                // Show all assignee changes
+                issue.assigneeChanges.forEach(change => {
+                  allChanges.push(`<div class="change-item"><strong>Assignee:</strong> <span class="assignee-change">${change.from || 'Unassigned'}</span> → <span class="assignee-change">${change.to || 'Unassigned'}</span></div>`);
+                });
+              } else if (issue.initialAssignee !== issue.currentAssignee) {
+                // No changes in period but initial != current (change happened before period)
+                allChanges.push(`<div class="change-item"><strong>Assignee:</strong> <span class="assignee-change">${issue.initialAssignee}</span> → <span class="assignee-change">${issue.currentAssignee}</span></div>`);
+              }
+              
+              // Format priority changes - show ALL changes that happened during the period
+              if (issue.priorityChanges.length > 0) {
+                // Show all priority changes
+                issue.priorityChanges.forEach(change => {
+                  allChanges.push(`<div class="change-item"><strong>Priority:</strong> <span class="priority-change">${change.from || 'Unset'}</span> → <span class="priority-change">${change.to || 'Unset'}</span></div>`);
+                });
+              } else if (issue.initialPriority !== issue.currentPriority) {
+                // No changes in period but initial != current (change happened before period)
+                allChanges.push(`<div class="change-item"><strong>Priority:</strong> <span class="priority-change">${issue.initialPriority}</span> → <span class="priority-change">${issue.currentPriority}</span></div>`);
+              }
+              
+              // Format issue type changes - show ALL changes that happened during the period
+              if (issue.issueTypeChanges.length > 0) {
+                // Show all type changes
+                issue.issueTypeChanges.forEach(change => {
+                  allChanges.push(`<div class="change-item"><strong>Type:</strong> <span class="type-change">${change.from || 'Task'}</span> → <span class="type-change">${change.to || 'Task'}</span></div>`);
+                });
+              } else if (issue.hasIssueTypeChange) {
+                // No changes in period but initial != current (change happened before period)
+                allChanges.push(`<div class="change-item"><strong>Type:</strong> <span class="type-change">${issue.initialIssueType}</span> → <span class="type-change">${issue.currentIssueType}</span></div>`);
+              }
+              
+              return `
+                <div class="ticket">
+                  <div>
+                    <a href="${issue.link}" class="key" target="_blank">${issue.key}</a>
+                  </div>
+                  <div class="summary-text">
+                    <span class="issue-type-badge ${issue.issueType}">${issue.issueType}</span>
+                    ${issue.summary}
+                  </div>
+                  <div>
+                    <span class="assignee">${issue.currentAssignee}</span>
+                  </div>
+                  <div>
+                    <span class="reporter">${issue.reporter}</span>
+                  </div>
+                  <div class="changes-column">
+                    ${allChanges.length > 0 ? allChanges.join('') : '<span style="color: #6B778C;">No changes</span>'}
+                  </div>
+                </div>
+              `;
+            }).join('')}
             </div>
           </div>
         </div>
@@ -1371,9 +1842,9 @@ app.get('/backlog', async (req, res) => {
           </head>
           <body>
             <div class="nav-links">
-              <a href="/">Home</a> | <a href="/slow">Slow Motion</a> | <a href="/done">Completed Tickets</a> | <a href="/backlog">Backlog</a>
+              <a href="/">Home</a> | <a href="/slow">Slow Motion</a> | <a href="/done">Completed</a> | <a href="/backlog">Backlog</a> | <a href="/progress">Progress</a>
             </div>
-            <h1>Backlog Report</h1>
+            <h1>Backlog</h1>
             <p style="color: #6B778C; margin-top: 40px;">No backlog issues found</p>
           </body>
         </html>
@@ -1710,7 +2181,7 @@ app.get('/backlog', async (req, res) => {
       <body>
         <div class="container">
           <div class="nav-links">
-            <a href="/">Home</a> | <a href="/slow">Slow Motion</a> | <a href="/done">Completed Tickets</a> | <a href="/backlog">Backlog</a>
+            <a href="/">Home</a> | <a href="/slow">Slow Motion</a> | <a href="/done">Completed</a> | <a href="/backlog">Backlog</a> | <a href="/progress">Progress</a>
           </div>
           <h1>BACKLOG REPORT</h1>
           
