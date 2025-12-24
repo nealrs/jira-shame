@@ -4,8 +4,8 @@ services:
     ports:
       - "1337:3000"
     environment:
-      - JIRA_HOST=audicus.atlassian.net
+      - JIRA_HOST=${JIRA_HOST}
       - JIRA_EMAIL=${JIRA_EMAIL}
       - JIRA_API_TOKEN=${JIRA_API_TOKEN}
-      - BOARD_ID=7
+      - BOARD_ID=${JIRA_BOARD_ID}
     restart: unless-stopped
