@@ -2,12 +2,61 @@ require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
 const moment = require('moment');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Serve static files from img folder
+// Serve static files
 app.use('/img', express.static('img'));
+app.use('/css', express.static('public/css'));
+
+// Template helper function
+function renderTemplate(templateName, data = {}) {
+  const templatePath = path.join(__dirname, 'templates', templateName);
+  let html = fs.readFileSync(templatePath, 'utf8');
+  
+  // Replace placeholders
+  Object.keys(data).forEach(key => {
+    const regex = new RegExp(`{{${key}}}`, 'g');
+    html = html.replace(regex, data[key] || '');
+  });
+  
+  return html;
+}
+
+// Load common templates
+const navTemplate = fs.readFileSync(path.join(__dirname, 'templates', 'nav.html'), 'utf8');
+const baseTemplate = fs.readFileSync(path.join(__dirname, 'templates', 'base.html'), 'utf8');
+
+function renderPage(title, content, additionalStyles = '') {
+  return baseTemplate
+    .replace('{{TITLE}}', title)
+    .replace('{{NAV}}', navTemplate)
+    .replace('{{STYLES}}', additionalStyles)
+    .replace('{{CONTENT}}', content);
+}
+
+// Helper function to generate period selector
+function generatePeriodSelector(currentPeriod, basePath) {
+  const periods = [
+    { key: 'today', label: 'Today' },
+    { key: 'yesterday', label: 'Yesterday' },
+    { key: 'this-week', label: 'This Week' },
+    { key: 'last-7-days', label: 'Last 7 Days' },
+    { key: 'this-month', label: 'This Month' },
+    { key: 'last-month', label: 'Last Month' }
+  ];
+  
+  return `
+    <div class="period-selector">
+      ${periods.map(p => 
+        `<a href="${basePath}?period=${p.key}" class="${currentPeriod === p.key ? 'active' : ''}">${p.label}</a>`
+      ).join('')}
+    </div>
+  `;
+}
 
 // Config
 const JIRA_HOST = process.env.JIRA_HOST; 
@@ -28,147 +77,122 @@ const jiraClient = axios.create({
 });
 
 app.get('/', (req, res) => {
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>Jira Shame - Dashboard</title>
-      <link rel="icon" type="image/png" href="/img/favico.png">
-      <style>
-        body { 
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-          padding: 0; 
-          background: #f4f5f7; 
-          color: #172B4D;
-          margin: 0;
-        }
-        .container { 
-          max-width: 1200px; 
-          margin: 0 auto; 
-          padding: 60px 40px;
-        }
-        h1 { 
-          text-align: center; 
-          font-size: 48px;
-          margin-bottom: 10px;
-          color: #172B4D;
-        }
-        .subtitle {
-          text-align: center;
-          color: #6B778C;
-          font-size: 18px;
-          margin-bottom: 60px;
-        }
-        .routes {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-          gap: 30px;
-          margin-top: 40px;
-        }
-        .route-card {
-          background: white;
-          border-radius: 8px;
-          padding: 30px;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-          transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .route-card:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-        .route-card h2 {
-          margin-top: 0;
-          margin-bottom: 15px;
-          color: #172B4D;
-          font-size: 24px;
-        }
-        .route-card p {
-          color: #6B778C;
-          line-height: 1.6;
-          margin-bottom: 20px;
-        }
-        .route-link {
-          display: inline-block;
-          padding: 12px 24px;
-          background: #0052CC;
-          color: white;
-          text-decoration: none;
-          border-radius: 4px;
-          font-weight: 500;
-          transition: background 0.2s;
-        }
-        .route-link:hover {
-          background: #0065FF;
-        }
-        .route-link.slow {
-          background: #DE350B;
-        }
-        .route-link.slow:hover {
-          background: #FF5630;
-        }
-        .icon {
-          font-size: 32px;
-          margin-bottom: 15px;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <h1>The Blame Game</h1>
-        <p class="subtitle"><em>It was the best of times. It was the worst of times.</em></p>
-        
-        <div class="routes">
-          <div class="route-card">
-            <div class="icon">🐌</div>
-            <h2>SLOW MOTION</h2>
-            <p>
-              View tickets that have been stuck in the same status for 7+ days. 
-              Filter by assignee to see who's responsible for stagnant work. 
-              Tickets are grouped by status (To Do, Ready for Development, In Progress, In Review) 
-              and color-coded based on how long they've been stuck.
-            </p>
-            <a href="/slow" class="route-link slow">View Stagnant Tickets</a>
-          </div>
-          
-          <div class="route-card">
-            <div class="icon">✅</div>
-            <h2>COMPLETED TICKETS</h2>
-            <p>
-              See all tickets that were completed (Done or Won't Do) in a selected time period. 
-              View completion times, assignees, and reporters. Filter by today, yesterday, 
-              this week, this month, or last month. Tickets are grouped by assignee and 
-              sorted by completion time.
-            </p>
-            <a href="/done" class="route-link">View Completed</a>
-          </div>
-          
-          <div class="route-card">
-            <div class="icon">⏰</div>
-            <h2>BACKLOG</h2>
-            <p>
-              View all issues currently in the backlog (not in active sprint). See when each ticket was created, 
-              its current status, and how long it's been open. Age is displayed in a human-readable format. 
-              Includes statistics showing total issues, median age, and average age.
-            </p>
-            <a href="/backlog" class="route-link">View Backlog</a>
-          </div>
-          
-          <div class="route-card">
-            <div class="icon">📊</div>
-            <h2>PROGRESS</h2>
-            <p>
-              Track recent progress by viewing issues that have changed status in a selected time period. 
-              See where issues started and where they are now, along with assignee and priority changes. 
-              Filter by today, yesterday, this week, this month, or last month.
-            </p>
-            <a href="/progress" class="route-link">View Progress</a>
-          </div>
-        </div>
-      </div>
-    </body>
-    </html>
+  const styles = `
+    <style>
+      .subtitle {
+        text-align: center;
+        color: #6B778C;
+        font-size: 18px;
+        margin-bottom: 60px;
+      }
+      .routes {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 30px;
+        margin-top: 40px;
+      }
+      .route-card {
+        background: white;
+        border-radius: 8px;
+        padding: 30px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        transition: transform 0.2s, box-shadow 0.2s;
+      }
+      .route-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      }
+      .route-card h2 {
+        margin-top: 0;
+        margin-bottom: 15px;
+        color: #172B4D;
+        font-size: 24px;
+      }
+      .route-card p {
+        color: #6B778C;
+        line-height: 1.6;
+        margin-bottom: 20px;
+      }
+      .route-link {
+        display: inline-block;
+        padding: 12px 24px;
+        background: #0052CC;
+        color: white;
+        text-decoration: none;
+        border-radius: 4px;
+        font-weight: 500;
+        transition: background 0.2s;
+      }
+      .route-link:hover {
+        background: #0065FF;
+      }
+      .route-link.slow {
+        background: #DE350B;
+      }
+      .route-link.slow:hover {
+        background: #FF5630;
+      }
+      .icon {
+        font-size: 32px;
+        margin-bottom: 15px;
+      }
+    </style>
   `;
-  res.send(html);
+  
+  const content = `
+    <h1>The Blame Game</h1>
+    <p class="subtitle"><em>It was the best of times. It was the worst of times.</em></p>
+    
+    <div class="routes">
+      <div class="route-card">
+        <div class="icon">🐌</div>
+        <h2>SLOW MOTION</h2>
+        <p>
+          View tickets that have been stuck in the same status for 7+ days. 
+          Filter by assignee to see who's responsible for stagnant work. 
+          Tickets are grouped by status (To Do, Ready for Development, In Progress, In Review) 
+          and color-coded based on how long they've been stuck.
+        </p>
+        <a href="/slow" class="route-link slow">View Stagnant Tickets</a>
+      </div>
+      
+      <div class="route-card">
+        <div class="icon">✅</div>
+        <h2>COMPLETED TICKETS</h2>
+        <p>
+          See all tickets that were completed (Done or Won't Do) in a selected time period. 
+          View completion times, assignees, and reporters. Filter by today, yesterday, 
+          this week, this month, or last month. Tickets are grouped by assignee and 
+          sorted by completion time.
+        </p>
+        <a href="/done" class="route-link">View Completed</a>
+      </div>
+      
+      <div class="route-card">
+        <div class="icon">⏰</div>
+        <h2>BACKLOG</h2>
+        <p>
+          View all issues currently in the backlog (not in active sprint). See when each ticket was created, 
+          its current status, and how long it's been open. Age is displayed in a human-readable format. 
+          Includes statistics showing total issues, median age, and average age.
+        </p>
+        <a href="/backlog" class="route-link">View Backlog</a>
+      </div>
+      
+      <div class="route-card">
+        <div class="icon">📊</div>
+        <h2>PROGRESS</h2>
+        <p>
+          Track recent progress by viewing issues that have changed status in a selected time period. 
+          See where issues started and where they are now, along with assignee and priority changes. 
+          Filter by today, yesterday, this week, this month, or last month.
+        </p>
+        <a href="/progress" class="route-link">View Progress</a>
+      </div>
+    </div>
+  `;
+  
+  res.send(renderPage('Jira Shame - Dashboard', content, styles));
 });
 
 app.get('/slow', async (req, res) => {
@@ -246,7 +270,8 @@ app.get('/slow', async (req, res) => {
     console.log(`Found ${issues.length} issues from board query`);
 
     if (issues.length === 0) {
-      return res.send('<h1>No stagnant tickets found! 🎉</h1>');
+      const content = '<h1>SLOW MOTION</h1><p style="text-align: center; color: #6B778C; margin-top: 40px;">No stagnant tickets found! 🎉</p>';
+      return res.send(renderPage('Stuck Tickets', content));
     }
 
     // 4. Bulk fetch details using new /rest/api/3/search/jql endpoint
@@ -523,210 +548,160 @@ app.get('/slow', async (req, res) => {
     };
 
     // 7. Render HTML
-    let html = `
-      <html>
-      <head>
-        <title>Stuck Tickets</title>
-        <link rel="icon" type="image/png" href="/img/favico.png">
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 0 40px; background: #f4f5f7; color: #172B4D;}
-          .container { max-width: 1600px; margin: 0 auto; }
-          h1 { text-align: center;}
-          .status-columns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
-          .status-group { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; flex-direction: column; min-height: 200px; }
-          .status-header { font-size: 1.2em; font-weight: bold; padding-bottom: 15px; border-bottom: 2px solid #dfe1e6; margin-bottom: 15px; display: flex; justify-content: space-between; }
-          .status-content { flex: 1; }
-          .ticket { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid #EBECF0; }
-          .ticket:last-child { border-bottom: none; }
-          
-          .days-badge { 
-            background: #dfe1e6; color: #42526E; 
-            min-width: 50px; height: 50px; border-radius: 50%; 
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            margin-right: 20px; font-weight: bold; flex-shrink: 0;
+    const styles = `
+      <style>
+        .container { max-width: 1600px; margin: 0 auto; }
+        .status-columns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+        .status-group { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; flex-direction: column; min-height: 200px; }
+        .status-header { font-size: 1.2em; font-weight: bold; padding-bottom: 15px; border-bottom: 2px solid #dfe1e6; margin-bottom: 15px; display: flex; justify-content: space-between; }
+        .status-content { flex: 1; }
+        .ticket { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid #EBECF0; }
+        .ticket:last-child { border-bottom: none; }
+        .days-badge { 
+          background: #dfe1e6; color: #42526E; 
+          min-width: 50px; height: 50px; border-radius: 50%; 
+          display: flex; flex-direction: column; align-items: center; justify-content: center;
+          margin-right: 20px; font-weight: bold; flex-shrink: 0;
+        }
+        .days-badge.warning { background: #FFFAE6; color: #BF2600; }
+        .days-badge.danger { background: #DE350B; color: white; }
+        .days-count { font-size: 18px; line-height: 1; }
+        .days-label { font-size: 9px; text-transform: uppercase; margin-top: 2px; }
+        .details { flex-grow: 1; }
+        .summary { color: #172B4D; }
+        .meta { font-size: 12px; color: #6B778C; margin-top: 4px; }
+        .pr-info { margin-top: 6px; }
+        .pr-link { display: inline-block; background: #E3FCEF; color: #006644; padding: 2px 8px; border-radius: 4px; margin-right: 6px; text-decoration: none; font-size: 11px; }
+        .pr-link:hover { background: #ABF5D1; }
+        .pr-status { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 500; margin-left: 4px; }
+        .pr-status.open { background: #DEEBFF; color: #0052CC; }
+        .pr-status.merged { background: #E3FCEF; color: #006644; }
+        .pr-status.closed { background: #FFEBE6; color: #BF2600; }
+        .pr-review-status { font-size: 10px; color: #6B778C; margin-left: 4px; }
+        .pr-review-status.needs-review { color: #BF2600; font-weight: 500; }
+        .pr-review-status.approved { color: #006644; }
+        @media (max-width: 1400px) {
+          .status-columns { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 800px) {
+          .status-columns { grid-template-columns: 1fr; }
+        }
+      </style>
+      <script>
+        function filterByAssignee(assignee, event) {
+          document.querySelectorAll('.filter-label').forEach(label => {
+            label.classList.remove('active');
+          });
+          if (event && event.target) {
+            event.target.classList.add('active');
+          } else {
+            const filterValue = assignee === 'all' ? 'all' : assignee.replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+            const label = document.querySelector('.filter-label[data-filter="' + filterValue + '"]');
+            if (label) label.classList.add('active');
           }
-          .days-badge.warning { background: #FFFAE6; color: #BF2600; } /* Moderate wait */
-          .days-badge.danger { background: #DE350B; color: white; } /* Long wait */
-          
-          .days-count { font-size: 18px; line-height: 1; }
-          .days-label { font-size: 9px; text-transform: uppercase; margin-top: 2px; }
-          
-          .details { flex-grow: 1; }
-          .key { font-weight: bold; color: #0052CC; text-decoration: none; margin-right: 10px;}
-          .summary { color: #172B4D; }
-          .meta { font-size: 12px; color: #6B778C; margin-top: 4px; }
-          .assignee { display: inline-block; background: #EBECF0; padding: 2px 6px; border-radius: 4px; margin-right: 8px;}
-          .pr-info { margin-top: 6px; }
-          .pr-link { display: inline-block; background: #E3FCEF; color: #006644; padding: 2px 8px; border-radius: 4px; margin-right: 6px; text-decoration: none; font-size: 11px; }
-          .pr-link:hover { background: #ABF5D1; }
-          .pr-status { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 500; margin-left: 4px; }
-          .pr-status.open { background: #DEEBFF; color: #0052CC; }
-          .pr-status.merged { background: #E3FCEF; color: #006644; }
-          .pr-status.closed { background: #FFEBE6; color: #BF2600; }
-          .pr-review-status { font-size: 10px; color: #6B778C; margin-left: 4px; }
-          .pr-review-status.needs-review { color: #BF2600; font-weight: 500; }
-          .pr-review-status.approved { color: #006644; }
-          .issue-type-icon { display: inline-block; margin-right: 8px; font-size: 16px; vertical-align: middle; }
-          .issue-type-icon.bug { color: #E53E3E; }
-          .issue-type-icon.story { color: #38A169; }
-          .issue-type-icon.task { color: #3182CE; }
-          .issue-type-icon.spike { color: #805AD5; }
-          .issue-type-badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: 500; text-transform: uppercase; margin-right: 8px; }
-          .issue-type-badge.bug { background: #FFEBE6; color: #BF2600; }
-          .issue-type-badge.story { background: #E3FCEF; color: #006644; }
-          .issue-type-badge.task { background: #DEEBFF; color: #0052CC; }
-          .issue-type-badge.epic { background: #EAE6FF; color: #403294; }
-          .issue-type-badge.subtask { background: #F4F5F7; color: #42526E; }
-          .issue-type-badge.spike { background: #FFF4E6; color: #974F00; }
-          .issue-type-badge.idea { background: #FFF4E6; color: #974F00; }
-          .nav-links { text-align: center; margin-bottom: 20px; font-size: 14px; color: #6B778C; }
-          .nav-links a { color: #0052CC; text-decoration: none; margin: 0 8px; }
-          .nav-links a:hover { text-decoration: underline; }
-          .filter-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; padding: 15px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-          .filter-label { display: inline-block; padding: 6px 12px; background: #EBECF0; color: #172B4D; border-radius: 4px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
-          .filter-label:hover { background: #DFE1E6; }
-          .filter-label.active { background: #0052CC; color: white; }
-          .filter-label.all { background: #DFE1E6; font-weight: 500; }
-          .filter-label.all.active { background: #172B4D; color: white; }
-          .ticket { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid #EBECF0; }
-          .ticket.hidden { display: none; }
-          
-          @media (max-width: 1400px) {
-            .status-columns { grid-template-columns: repeat(2, 1fr); }
-          }
-          @media (max-width: 800px) {
-            .status-columns { grid-template-columns: 1fr; }
-          }
-        </style>
-        <script>
-          function filterByAssignee(assignee, event) {
-            // Update active state
-            document.querySelectorAll('.filter-label').forEach(label => {
-              label.classList.remove('active');
-            });
-            if (event && event.target) {
-              event.target.classList.add('active');
+          const tickets = document.querySelectorAll('.ticket');
+          tickets.forEach(ticket => {
+            if (assignee === 'all') {
+              ticket.classList.remove('hidden');
             } else {
-              // Fallback: find label by data-filter attribute
-              const filterValue = assignee === 'all' ? 'all' : assignee.replace(/'/g, '&#39;').replace(/"/g, '&quot;');
-              const label = document.querySelector('.filter-label[data-filter="' + filterValue + '"]');
-              if (label) label.classList.add('active');
-            }
-            
-            // Filter tickets
-            const tickets = document.querySelectorAll('.ticket');
-            tickets.forEach(ticket => {
-              if (assignee === 'all') {
+              const ticketAssignee = ticket.getAttribute('data-assignee');
+              const decodedAssignee = assignee.replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+              const decodedTicketAssignee = ticketAssignee.replace(/&quot;/g, '"');
+              if (decodedTicketAssignee === decodedAssignee) {
                 ticket.classList.remove('hidden');
               } else {
-                const ticketAssignee = ticket.getAttribute('data-assignee');
-                // Compare decoded values
-                const decodedAssignee = assignee.replace(/&#39;/g, "'").replace(/&quot;/g, '"');
-                const decodedTicketAssignee = ticketAssignee.replace(/&quot;/g, '"');
-                if (decodedTicketAssignee === decodedAssignee) {
-                  ticket.classList.remove('hidden');
-                } else {
-                  ticket.classList.add('hidden');
-                }
+                ticket.classList.add('hidden');
               }
-            });
-            
-            // Update ticket counts in headers
-            updateTicketCounts();
-          }
-          
-          function updateTicketCounts() {
-            const statusGroups = document.querySelectorAll('.status-group');
-            statusGroups.forEach(group => {
-              const visibleTickets = group.querySelectorAll('.ticket:not(.hidden)').length;
-              const countSpan = group.querySelector('.status-header span:last-child');
-              if (countSpan) {
-                countSpan.textContent = visibleTickets + ' tickets';
-              }
-            });
-          }
-        </script>
-      </head>
-      <body>
-        <div class="container">
-          <div class="nav-links">
-            <a href="/">Home</a> | <a href="/slow">Slow Motion</a> | <a href="/done">Completed</a> | <a href="/backlog">Backlog</a> | <a href="/progress">Progress</a>
-          </div>
-          <h1>SLOW MOTION</h1>
-          <p style="text-align: center; color: #6B778C; margin-bottom: 30px; font-size: 14px;">
-            Tickets which have been in the same status for over 7 days
-          </p>
-          
-          <div class="filter-bar">
-            <span class="filter-label all active" data-filter="all" onclick="filterByAssignee('all', event)">All</span>
-            ${allAssignees.map(assignee => {
-              const escapedAssignee = assignee.replace(/'/g, "&#39;").replace(/"/g, '&quot;');
-              const jsSafeAssignee = assignee.replace(/'/g, "\\'").replace(/"/g, '\\"');
-              return `<span class="filter-label" data-filter="${escapedAssignee}" onclick="filterByAssignee('${jsSafeAssignee}', event)">${assignee}</span>`;
-            }).join('')}
-          </div>
-          
-          <div class="status-columns">
-          ${TARGET_STATUSES.map(status => {
-            const list = grouped[status] || [];
-            
-            return `
-              <div class="status-group">
-                <div class="status-header">
-                  <span>${status}</span>
-                  <span>${list.length} tickets</span>
-                </div>
-                  <div class="status-content">
-                    ${list.length === 0 ? '<p style="color: #6B778C; text-align: center; padding: 20px;">No tickets</p>' : list.map(i => {
-                  return `
-                    <div class="ticket" data-assignee="${i.assignee.replace(/"/g, '&quot;')}">
-                          <div class="days-badge ${i.badgeClass || ''}">
-                        <span class="days-count">${i.days}</span>
-                        <span class="days-label">days</span>
-                      </div>
-                      <div class="details">
-                        <div>
-                          <a href="${i.link}" class="key" target="_blank">${i.key}</a>
-                          <span class="issue-type-badge ${i.issueType}">${i.issueType}</span>
-                          <span class="summary">${i.summary}</span>
-                        </div>
-                        <div class="meta">
-                          <span class="assignee">${i.assignee}</span>
-                        </div>
-                            ${i.prs && i.prs.length > 0 ? `
-                              <div class="pr-info">
-                                ${i.prs.map(pr => {
-                                  let reviewText = '';
-                                  if (pr.needsReview) {
-                                    reviewText = `<span class="pr-review-status needs-review">⚠ Needs review (${pr.completedReviewCount || 0}/${pr.reviewerCount} completed)</span>`;
-                                  } else if (pr.approvedCount > 0) {
-                                    reviewText = `<span class="pr-review-status approved">✓ ${pr.approvedCount} approved</span>`;
-                                  } else if (pr.reviewerCount > 0 && pr.completedReviewCount === pr.reviewerCount) {
-                                    reviewText = `<span class="pr-review-status approved">✓ All reviews complete</span>`;
-                                  }
-                                  return `
-                                    <a href="${pr.url}" class="pr-link" target="_blank">PR #${pr.number}</a>
-                                    <span class="pr-status ${pr.status}">${pr.status}</span>
-                                    ${reviewText}
-                                  `;
-                                }).join('')}
-                              </div>
-                            ` : ''}
-                      </div>
+            }
+          });
+          updateTicketCounts();
+        }
+        function updateTicketCounts() {
+          const statusGroups = document.querySelectorAll('.status-group');
+          statusGroups.forEach(group => {
+            const visibleTickets = group.querySelectorAll('.ticket:not(.hidden)').length;
+            const countSpan = group.querySelector('.status-header span:last-child');
+            if (countSpan) {
+              countSpan.textContent = visibleTickets + ' tickets';
+            }
+          });
+        }
+      </script>
+    `;
+    
+    const content = `
+      <h1>SLOW MOTION</h1>
+      <p style="text-align: center; color: #6B778C; margin-bottom: 30px; font-size: 14px;">
+        Tickets which have been in the same status for over 7 days
+      </p>
+      
+      <div class="filter-bar">
+        <span class="filter-label all active" data-filter="all" onclick="filterByAssignee('all', event)">All</span>
+        ${allAssignees.map(assignee => {
+          const escapedAssignee = assignee.replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+          const jsSafeAssignee = assignee.replace(/'/g, "\\'").replace(/"/g, '\\"');
+          return `<span class="filter-label" data-filter="${escapedAssignee}" onclick="filterByAssignee('${jsSafeAssignee}', event)">${assignee}</span>`;
+        }).join('')}
+      </div>
+      
+      <div class="status-columns">
+      ${TARGET_STATUSES.map(status => {
+        const list = grouped[status] || [];
+        
+        return `
+          <div class="status-group">
+            <div class="status-header">
+              <span>${status}</span>
+              <span>${list.length} tickets</span>
+            </div>
+            <div class="status-content">
+              ${list.length === 0 ? '<p style="color: #6B778C; text-align: center; padding: 20px;">No tickets</p>' : list.map(i => {
+                return `
+                  <div class="ticket" data-assignee="${i.assignee.replace(/"/g, '&quot;')}">
+                    <div class="days-badge ${i.badgeClass || ''}">
+                      <span class="days-count">${i.days}</span>
+                      <span class="days-label">days</span>
                     </div>
-                  `;
-                }).join('')}
+                    <div class="details">
+                      <div>
+                        <a href="${i.link}" class="key" target="_blank">${i.key}</a>
+                        <span class="issue-type-badge ${i.issueType}">${i.issueType}</span>
+                        <span class="summary">${i.summary}</span>
                       </div>
-              </div>
-            `;
-          }).join('')}
-              </div>
-        </div>
-      </body>
-      </html>
+                      <div class="meta">
+                        <span class="assignee">${i.assignee}</span>
+                      </div>
+                      ${i.prs && i.prs.length > 0 ? `
+                        <div class="pr-info">
+                          ${i.prs.map(pr => {
+                            let reviewText = '';
+                            if (pr.needsReview) {
+                              reviewText = `<span class="pr-review-status needs-review">⚠ Needs review (${pr.completedReviewCount || 0}/${pr.reviewerCount} completed)</span>`;
+                            } else if (pr.approvedCount > 0) {
+                              reviewText = `<span class="pr-review-status approved">✓ ${pr.approvedCount} approved</span>`;
+                            } else if (pr.reviewerCount > 0 && pr.completedReviewCount === pr.reviewerCount) {
+                              reviewText = `<span class="pr-review-status approved">✓ All reviews complete</span>`;
+                            }
+                            return `
+                              <a href="${pr.url}" class="pr-link" target="_blank">PR #${pr.number}</a>
+                              <span class="pr-status ${pr.status}">${pr.status}</span>
+                              ${reviewText}
+                            `;
+                          }).join('')}
+                        </div>
+                      ` : ''}
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        `;
+      }).join('')}
+      </div>
     `;
 
-    res.send(html);
+    res.send(renderPage('Stuck Tickets', content, styles));
 
   } catch (error) {
     console.error(error);
@@ -812,33 +787,12 @@ app.get('/done', async (req, res) => {
     console.log(`Found ${issueKeys.length} completed issues for ${periodLabel}`);
     
     if (issueKeys.length === 0) {
-      return res.send(`
-        <html>
-          <head>
-            <title>Completed Tickets</title>
-            <link rel="icon" type="image/png" href="/img/favico.png">
-            <style>
-              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 40px; background: #f4f5f7; text-align: center; }
-              h1 { color: #172B4D; }
-              .period-selector { margin: 20px 0; }
-              .period-selector a { display: inline-block; padding: 8px 16px; margin: 0 4px; background: #EBECF0; color: #172B4D; text-decoration: none; border-radius: 4px; }
-              .period-selector a.active { background: #0052CC; color: white; }
-            </style>
-          </head>
-          <body>
-            <h1>Completed</h1>
-            <div class="period-selector">
-              <a href="/done?period=today" class="${period === 'today' ? 'active' : ''}">Today</a>
-              <a href="/done?period=yesterday" class="${period === 'yesterday' ? 'active' : ''}">Yesterday</a>
-              <a href="/done?period=this-week" class="${period === 'this-week' ? 'active' : ''}">This Week</a>
-              <a href="/done?period=last-7-days" class="${period === 'last-7-days' ? 'active' : ''}">Last 7 Days</a>
-              <a href="/done?period=this-month" class="${period === 'this-month' ? 'active' : ''}">This Month</a>
-              <a href="/done?period=last-month" class="${period === 'last-month' ? 'active' : ''}">Last Month</a>
-            </div>
-            <p style="color: #6B778C; margin-top: 40px;">No completed tickets found for ${periodLabel}</p>
-          </body>
-        </html>
-      `);
+      const content = `
+        <h1>Completed</h1>
+        ${generatePeriodSelector(period, '/done')}
+        <p style="color: #6B778C; margin-top: 40px;">No completed tickets found for ${periodLabel}</p>
+      `;
+      return res.send(renderPage('Completed Tickets', content));
     }
     
     // Bulk fetch details using new /rest/api/3/search/jql endpoint
@@ -853,33 +807,12 @@ app.get('/done', async (req, res) => {
     console.log(`Found ${issues.length} completed issues for ${periodLabel}`);
     
     if (issues.length === 0) {
-      return res.send(`
-        <html>
-          <head>
-            <title>Completed Tickets</title>
-            <link rel="icon" type="image/png" href="/img/favico.png">
-            <style>
-              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 40px; background: #f4f5f7; text-align: center; }
-              h1 { color: #172B4D; }
-              .period-selector { margin: 20px 0; }
-              .period-selector a { display: inline-block; padding: 8px 16px; margin: 0 4px; background: #EBECF0; color: #172B4D; text-decoration: none; border-radius: 4px; }
-              .period-selector a.active { background: #0052CC; color: white; }
-            </style>
-          </head>
-          <body>
-            <h1>Completed</h1>
-            <div class="period-selector">
-              <a href="/done?period=today" class="${period === 'today' ? 'active' : ''}">Today</a>
-              <a href="/done?period=yesterday" class="${period === 'yesterday' ? 'active' : ''}">Yesterday</a>
-              <a href="/done?period=this-week" class="${period === 'this-week' ? 'active' : ''}">This Week</a>
-              <a href="/done?period=last-7-days" class="${period === 'last-7-days' ? 'active' : ''}">Last 7 Days</a>
-              <a href="/done?period=this-month" class="${period === 'this-month' ? 'active' : ''}">This Month</a>
-              <a href="/done?period=last-month" class="${period === 'last-month' ? 'active' : ''}">Last Month</a>
-            </div>
-            <p style="color: #6B778C; margin-top: 40px;">No completed tickets found for ${periodLabel}</p>
-          </body>
-        </html>
-      `);
+      const content = `
+        <h1>Completed</h1>
+        ${generatePeriodSelector(period, '/done')}
+        <p style="color: #6B778C; margin-top: 40px;">No completed tickets found for ${periodLabel}</p>
+      `;
+      return res.send(renderPage('Completed Tickets', content));
     }
     
     // Fetch changelog for each issue to get exact completion time and check if it was in a sprint
@@ -1095,164 +1028,103 @@ app.get('/done', async (req, res) => {
     const allAssignees = [...new Set(processedIssues.map(issue => issue.assignee))].sort();
     
     // Generate HTML
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Completed Tickets - ${periodLabel}</title>
-        <link rel="icon" type="image/png" href="/img/favico.png">
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 0 40px; background: #f4f5f7; color: #172B4D;}
-          .container { max-width: 1400px; margin: 0 auto; }
-          h1 { text-align: center; margin-bottom: 10px; }
-          .period-selector { display: flex; justify-content: center; gap: 8px; margin: 20px 0 30px; flex-wrap: wrap; }
-          .period-selector a { display: inline-block; padding: 8px 16px; background: #EBECF0; color: #172B4D; text-decoration: none; border-radius: 4px; font-size: 14px; transition: all 0.2s; }
-          .period-selector a:hover { background: #DFE1E6; }
-          .period-selector a.active { background: #0052CC; color: white; }
-          .summary { text-align: center; color: #6B778C; margin-bottom: 30px; font-size: 14px; }
-          .tickets-list { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 20px; }
-          .ticket { padding: 16px; border-bottom: 1px solid #EBECF0; display: grid; grid-template-columns: 120px 1fr 150px 150px 140px; gap: 20px; align-items: center; }
-          .ticket:last-child { border-bottom: none; }
-          .ticket:hover { background: #F4F5F7; }
-          .key { font-weight: bold; color: #0052CC; text-decoration: none; white-space: nowrap; }
-          .key:hover { text-decoration: underline; }
-          .summary-text { color: #172B4D; }
-          .meta { font-size: 13px; color: #6B778C; }
-          .assignee, .reporter { display: inline-block; background: #EBECF0; padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap; }
-          .duration { font-weight: 600; color: #172B4D; }
-          .completed-date { font-size: 12px; color: #6B778C; }
-          .header-row { padding: 12px 16px; background: #F4F5F7; border-bottom: 2px solid #DFE1E6; font-weight: 600; font-size: 13px; color: #6B778C; text-transform: uppercase; display: grid; grid-template-columns: 120px 1fr 150px 150px 140px; gap: 20px; }
-          .sprint-name { display: inline-block; background: #E3FCEF; color: #006644; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
-          .sprint-name.backlog { background: #EBECF0; color: #6B778C; }
-          .issue-type-badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: 500; text-transform: uppercase; margin-right: 8px; }
-          .issue-type-badge.bug { background: #FFEBE6; color: #BF2600; }
-          .issue-type-badge.story { background: #E3FCEF; color: #006644; }
-          .issue-type-badge.task { background: #DEEBFF; color: #0052CC; }
-          .issue-type-badge.epic { background: #EAE6FF; color: #403294; }
-          .issue-type-badge.subtask { background: #F4F5F7; color: #42526E; }
-          .issue-type-badge.spike { background: #FFF4E6; color: #974F00; }
-          .issue-type-badge.idea { background: #FFF4E6; color: #974F00; }
-          .nav-links { text-align: center; margin-bottom: 20px; font-size: 14px; color: #6B778C; }
-          .nav-links a { color: #0052CC; text-decoration: none; margin: 0 8px; }
-          .nav-links a:hover { text-decoration: underline; }
-          .filter-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; padding: 15px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-          .filter-label { display: inline-block; padding: 6px 12px; background: #EBECF0; color: #172B4D; border-radius: 4px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
-          .filter-label:hover { background: #DFE1E6; }
-          .filter-label.active { background: #0052CC; color: white; }
-          .filter-label.all { background: #DFE1E6; font-weight: 500; }
-          .filter-label.all.active { background: #172B4D; color: white; }
-          .ticket.hidden { display: none; }
-        </style>
-        <script>
-          function filterByAssignee(assignee, event) {
-            // Update active state
-            document.querySelectorAll('.filter-label').forEach(label => {
-              label.classList.remove('active');
-            });
-            if (event && event.target) {
-              event.target.classList.add('active');
+    const styles = `
+      <style>
+        .container { max-width: 1400px; margin: 0 auto; }
+        .ticket { display: grid; grid-template-columns: 120px 1fr 150px 150px 140px; gap: 20px; align-items: center; }
+        .header-row { display: grid; grid-template-columns: 120px 1fr 150px 150px 140px; gap: 20px; }
+        .duration { font-weight: 600; color: #172B4D; }
+        .completed-date { font-size: 12px; color: #6B778C; }
+      </style>
+      <script>
+        function filterByAssignee(assignee, event) {
+          document.querySelectorAll('.filter-label').forEach(label => {
+            label.classList.remove('active');
+          });
+          if (event && event.target) {
+            event.target.classList.add('active');
+          } else {
+            const filterValue = assignee === 'all' ? 'all' : assignee.replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+            const label = document.querySelector('.filter-label[data-filter="' + filterValue + '"]');
+            if (label) label.classList.add('active');
+          }
+          const tickets = document.querySelectorAll('.ticket');
+          tickets.forEach(ticket => {
+            if (assignee === 'all') {
+              ticket.classList.remove('hidden');
             } else {
-              // Fallback: find label by data-filter attribute
-              const filterValue = assignee === 'all' ? 'all' : assignee.replace(/'/g, '&#39;').replace(/"/g, '&quot;');
-              const label = document.querySelector('.filter-label[data-filter="' + filterValue + '"]');
-              if (label) label.classList.add('active');
-            }
-            
-            // Filter tickets
-            const tickets = document.querySelectorAll('.ticket');
-            tickets.forEach(ticket => {
-              if (assignee === 'all') {
+              const ticketAssignee = ticket.getAttribute('data-assignee');
+              const decodedAssignee = assignee.replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+              const decodedTicketAssignee = ticketAssignee.replace(/&quot;/g, '"');
+              if (decodedTicketAssignee === decodedAssignee) {
                 ticket.classList.remove('hidden');
               } else {
-                const ticketAssignee = ticket.getAttribute('data-assignee');
-                // Compare decoded values
-                const decodedAssignee = assignee.replace(/&#39;/g, "'").replace(/&quot;/g, '"');
-                const decodedTicketAssignee = ticketAssignee.replace(/&quot;/g, '"');
-                if (decodedTicketAssignee === decodedAssignee) {
-                  ticket.classList.remove('hidden');
-                } else {
-                  ticket.classList.add('hidden');
-                }
+                ticket.classList.add('hidden');
               }
-            });
-            
-            // Update ticket count in summary
-            updateTicketCount();
-          }
-          
-          function updateTicketCount() {
-            const visibleTickets = document.querySelectorAll('.ticket:not(.hidden)').length;
-            const summaryElement = document.querySelector('.summary');
-            if (summaryElement) {
-              const periodLabel = '${periodLabel}';
-              summaryElement.textContent = visibleTickets + ' ticket' + (visibleTickets !== 1 ? 's' : '') + ' completed in ' + periodLabel;
             }
+          });
+          updateTicketCount();
+        }
+        function updateTicketCount() {
+          const visibleTickets = document.querySelectorAll('.ticket:not(.hidden)').length;
+          const summaryElement = document.querySelector('.summary');
+          if (summaryElement) {
+            const periodLabel = '${periodLabel}';
+            summaryElement.textContent = visibleTickets + ' ticket' + (visibleTickets !== 1 ? 's' : '') + ' completed in ' + periodLabel;
           }
-        </script>
-      </head>
-      <body>
-        <div class="container">
-          <div class="nav-links">
-            <a href="/">Home</a> | <a href="/slow">Slow Motion</a> | <a href="/done">Completed</a> | <a href="/backlog">Backlog</a> | <a href="/progress">Progress</a>
-          </div>
-          <h1>COMPLETED TICKETS</h1>
-          <div class="period-selector">
-            <a href="/done?period=today" class="${period === 'today' ? 'active' : ''}">Today</a>
-            <a href="/done?period=yesterday" class="${period === 'yesterday' ? 'active' : ''}">Yesterday</a>
-            <a href="/done?period=this-week" class="${period === 'this-week' ? 'active' : ''}">This Week</a>
-            <a href="/done?period=last-7-days" class="${period === 'last-7-days' ? 'active' : ''}">Last 7 Days</a>
-            <a href="/done?period=this-month" class="${period === 'this-month' ? 'active' : ''}">This Month</a>
-            <a href="/done?period=last-month" class="${period === 'last-month' ? 'active' : ''}">Last Month</a>
-          </div>
-          <p class="summary">${processedIssues.length} ticket${processedIssues.length !== 1 ? 's' : ''} completed in ${periodLabel}</p>
-          
-          <div class="filter-bar">
-            <span class="filter-label all active" data-filter="all" onclick="filterByAssignee('all', event)">All</span>
-            ${allAssignees.map(assignee => {
-              const escapedAssignee = assignee.replace(/'/g, "&#39;").replace(/"/g, '&quot;');
-              const jsSafeAssignee = assignee.replace(/'/g, "\\'").replace(/"/g, '\\"');
-              return `<span class="filter-label" data-filter="${escapedAssignee}" onclick="filterByAssignee('${jsSafeAssignee}', event)">${assignee}</span>`;
-            }).join('')}
-          </div>
-          
-          <div class="tickets-list">
-            <div class="header-row">
-              <div>Key</div>
-              <div>Summary</div>
-              <div>Assignee</div>
-              <div>Reporter</div>
-              <div>Duration</div>
-            </div>
-            <div class="tickets-container">
-            ${processedIssues.map(issue => `
-              <div class="ticket" data-assignee="${issue.assignee.replace(/"/g, '&quot;')}">
-                <div>
-                  <a href="${issue.link}" class="key" target="_blank">${issue.key}</a>
-                </div>
-                <div class="summary-text">
-                  <span class="issue-type-badge ${issue.issueType}">${issue.issueType}</span>
-                  ${issue.summary}
-                </div>
-                <div>
-                  <span class="assignee">${issue.assignee}</span>
-                </div>
-                <div>
-                  <span class="reporter">${issue.reporter}</span>
-                </div>
-                <div>
-                  <div class="duration">${issue.durationText}</div>
-                  <div class="completed-date">${issue.resolutionStatus === "Won't Do" ? "Won't Do" : 'Done'} (${issue.completedDateFormatted})</div>
-                </div>
-              </div>
-            `).join('')}
-            </div>
-          </div>
+        }
+      </script>
+    `;
+    
+    const content = `
+      <h1>COMPLETED TICKETS</h1>
+      ${generatePeriodSelector(period, '/done')}
+      <p class="summary">${processedIssues.length} ticket${processedIssues.length !== 1 ? 's' : ''} completed in ${periodLabel}</p>
+      
+      <div class="filter-bar">
+        <span class="filter-label all active" data-filter="all" onclick="filterByAssignee('all', event)">All</span>
+        ${allAssignees.map(assignee => {
+          const escapedAssignee = assignee.replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+          const jsSafeAssignee = assignee.replace(/'/g, "\\'").replace(/"/g, '\\"');
+          return `<span class="filter-label" data-filter="${escapedAssignee}" onclick="filterByAssignee('${jsSafeAssignee}', event)">${assignee}</span>`;
+        }).join('')}
+      </div>
+      
+      <div class="tickets-list">
+        <div class="header-row">
+          <div>Key</div>
+          <div>Summary</div>
+          <div>Assignee</div>
+          <div>Reporter</div>
+          <div>Duration</div>
         </div>
-      </body>
-      </html>
+        <div class="tickets-container">
+        ${processedIssues.map(issue => `
+          <div class="ticket" data-assignee="${issue.assignee.replace(/"/g, '&quot;')}">
+            <div>
+              <a href="${issue.link}" class="key" target="_blank">${issue.key}</a>
+            </div>
+            <div class="summary-text">
+              <span class="issue-type-badge ${issue.issueType}">${issue.issueType}</span>
+              ${issue.summary}
+            </div>
+            <div>
+              <span class="assignee">${issue.assignee}</span>
+            </div>
+            <div>
+              <span class="reporter">${issue.reporter}</span>
+            </div>
+            <div>
+              <div class="duration">${issue.durationText}</div>
+              <div class="completed-date">${issue.resolutionStatus === "Won't Do" ? "Won't Do" : 'Done'} (${issue.completedDateFormatted})</div>
+            </div>
+          </div>
+        `).join('')}
+        </div>
+      </div>
     `;
 
-    res.send(html);
+    res.send(renderPage(`Completed Tickets - ${periodLabel}`, content, styles));
 
   } catch (error) {
     console.error(error);
@@ -1344,39 +1216,12 @@ app.get('/progress', async (req, res) => {
     console.log(`Found ${issueKeys.length} updated issues for ${periodLabel}`);
     
     if (issueKeys.length === 0) {
-      return res.send(`
-        <html>
-          <head>
-            <title>Progress Report</title>
-            <link rel="icon" type="image/png" href="/img/favico.png">
-            <style>
-              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 40px; background: #f4f5f7; text-align: center; }
-              h1 { color: #172B4D; }
-              .nav-links { text-align: center; margin-bottom: 20px; font-size: 14px; color: #6B778C; }
-              .nav-links a { color: #0052CC; text-decoration: none; margin: 0 8px; }
-              .nav-links a:hover { text-decoration: underline; }
-              .period-selector { margin: 20px 0; }
-              .period-selector a { display: inline-block; padding: 8px 16px; margin: 0 4px; background: #EBECF0; color: #172B4D; text-decoration: none; border-radius: 4px; }
-              .period-selector a.active { background: #0052CC; color: white; }
-            </style>
-          </head>
-          <body>
-            <div class="nav-links">
-              <a href="/">Home</a> | <a href="/slow">Slow Motion</a> | <a href="/done">Completed</a> | <a href="/backlog">Backlog</a> | <a href="/progress">Progress</a>
-            </div>
-            <h1>Progress</h1>
-            <div class="period-selector">
-              <a href="/progress?period=today" class="${period === 'today' ? 'active' : ''}">Today</a>
-              <a href="/progress?period=yesterday" class="${period === 'yesterday' ? 'active' : ''}">Yesterday</a>
-              <a href="/progress?period=this-week" class="${period === 'this-week' ? 'active' : ''}">This Week</a>
-              <a href="/progress?period=last-7-days" class="${period === 'last-7-days' ? 'active' : ''}">Last 7 Days</a>
-              <a href="/progress?period=this-month" class="${period === 'this-month' ? 'active' : ''}">This Month</a>
-              <a href="/progress?period=last-month" class="${period === 'last-month' ? 'active' : ''}">Last Month</a>
-            </div>
-            <p style="color: #6B778C; margin-top: 40px;">No issues with changes found for ${periodLabel}</p>
-          </body>
-        </html>
-      `);
+      const content = `
+        <h1>Progress</h1>
+        ${generatePeriodSelector(period, '/progress')}
+        <p style="color: #6B778C; margin-top: 40px;">No issues with changes found for ${periodLabel}</p>
+      `;
+      return res.send(renderPage('Progress Report', content));
     }
     
     // Bulk fetch details with changelog
@@ -1568,151 +1413,102 @@ app.get('/progress', async (req, res) => {
     console.log(`Found ${processedIssues.length} issues with status changes for ${periodLabel}`);
     
     // Generate HTML
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Progress Report - ${periodLabel}</title>
-        <link rel="icon" type="image/png" href="/img/favico.png">
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 0 40px; background: #f4f5f7; color: #172B4D;}
-          .container { max-width: 1600px; margin: 0 auto; }
-          h1 { text-align: center; margin-bottom: 10px; }
-          .period-selector { display: flex; justify-content: center; gap: 8px; margin: 20px 0 30px; flex-wrap: wrap; }
-          .period-selector a { display: inline-block; padding: 8px 16px; background: #EBECF0; color: #172B4D; text-decoration: none; border-radius: 4px; font-size: 14px; transition: all 0.2s; }
-          .period-selector a:hover { background: #DFE1E6; }
-          .period-selector a.active { background: #0052CC; color: white; }
-          .summary { text-align: center; color: #6B778C; margin-bottom: 30px; font-size: 14px; }
-          .tickets-list { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 20px; }
-          .ticket { padding: 16px; border-bottom: 1px solid #EBECF0; display: grid; grid-template-columns: 120px minmax(200px, 1fr) 150px 150px minmax(250px, 1fr); gap: 20px; align-items: start; }
-          .ticket:last-child { border-bottom: none; }
-          .ticket:hover { background: #F4F5F7; }
-          .key { font-weight: bold; color: #0052CC; text-decoration: none; white-space: nowrap; }
-          .key:hover { text-decoration: underline; }
-          .summary-text { color: #172B4D; font-size: 15px; max-width: 100%; word-wrap: break-word; overflow-wrap: break-word; }
-          .changes-column { font-size: 13px; line-height: 1.6; }
-          .change-item { margin-bottom: 6px; }
-          .change-item:last-child { margin-bottom: 0; }
-          .change-item strong { color: #172B4D; font-weight: 600; margin-right: 4px; }
-          .status-badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; white-space: nowrap; }
-          .status-badge.from { background: #FFEBE6; color: #BF2600; }
-          .status-badge.to { background: #E3FCEF; color: #006644; }
-          .status-arrow { color: #6B778C; font-size: 14px; margin: 0 4px; }
-          .assignee-change, .priority-change, .type-change { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 11px; white-space: nowrap; }
-          .assignee-change { background: #DEEBFF; color: #0052CC; }
-          .priority-change { background: #FFF4E6; color: #974F00; }
-          .type-change { background: #EAE6FF; color: #403294; }
-          .assignee, .reporter { display: inline-block; background: #EBECF0; padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap; }
-          .header-row { padding: 12px 16px; background: #F4F5F7; border-bottom: 2px solid #DFE1E6; font-weight: 600; font-size: 13px; color: #6B778C; text-transform: uppercase; display: grid; grid-template-columns: 120px minmax(200px, 1fr) 150px 150px minmax(250px, 1fr); gap: 20px; }
-          .issue-type-badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: 500; text-transform: uppercase; margin-right: 8px; }
-          .issue-type-badge.bug { background: #FFEBE6; color: #BF2600; }
-          .issue-type-badge.story { background: #E3FCEF; color: #006644; }
-          .issue-type-badge.task { background: #DEEBFF; color: #0052CC; }
-          .issue-type-badge.epic { background: #EAE6FF; color: #403294; }
-          .issue-type-badge.subtask { background: #F4F5F7; color: #42526E; }
-          .issue-type-badge.spike { background: #FFF4E6; color: #974F00; }
-          .issue-type-badge.idea { background: #FFF4E6; color: #974F00; }
-          .nav-links { text-align: center; margin-bottom: 20px; font-size: 14px; color: #6B778C; }
-          .nav-links a { color: #0052CC; text-decoration: none; margin: 0 8px; }
-          .nav-links a:hover { text-decoration: underline; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="nav-links">
-            <a href="/">Home</a> | <a href="/slow">Slow Motion</a> | <a href="/done">Completed</a> | <a href="/backlog">Backlog</a> | <a href="/progress">Progress</a>
-          </div>
-          <h1>PROGRESS REPORT</h1>
-          <div class="period-selector">
-            <a href="/progress?period=today" class="${period === 'today' ? 'active' : ''}">Today</a>
-            <a href="/progress?period=yesterday" class="${period === 'yesterday' ? 'active' : ''}">Yesterday</a>
-            <a href="/progress?period=this-week" class="${period === 'this-week' ? 'active' : ''}">This Week</a>
-            <a href="/progress?period=last-7-days" class="${period === 'last-7-days' ? 'active' : ''}">Last 7 Days</a>
-            <a href="/progress?period=this-month" class="${period === 'this-month' ? 'active' : ''}">This Month</a>
-            <a href="/progress?period=last-month" class="${period === 'last-month' ? 'active' : ''}">Last Month</a>
-          </div>
-          <p class="summary">${processedIssues.length} issue${processedIssues.length !== 1 ? 's' : ''} with changes in ${periodLabel}</p>
-          
-          <div class="tickets-list">
-            <div class="header-row">
-              <div>Key</div>
-              <div>Summary</div>
-              <div>Assignee</div>
-              <div>Reporter</div>
-              <div>Changes</div>
-            </div>
-            <div class="tickets-container">
-            ${processedIssues.map(issue => {
-              // Build all changes in order: Status, Assignee, Priority, Type
-              const allChanges = [];
-              
-              // Format status change - show start → end (overall change)
-              if (issue.hasStatusChange) {
-                allChanges.push(`<div class="change-item"><strong>Status:</strong> <span class="status-badge from">${issue.startStatus}</span><span class="status-arrow">→</span><span class="status-badge to">${issue.endStatus}</span></div>`);
-              }
-              
-              // Format assignee changes - show ALL changes that happened during the period
-              if (issue.assigneeChanges.length > 0) {
-                // Show all assignee changes
-                issue.assigneeChanges.forEach(change => {
-                  allChanges.push(`<div class="change-item"><strong>Assignee:</strong> <span class="assignee-change">${change.from || 'Unassigned'}</span> → <span class="assignee-change">${change.to || 'Unassigned'}</span></div>`);
-                });
-              } else if (issue.initialAssignee !== issue.currentAssignee) {
-                // No changes in period but initial != current (change happened before period)
-                allChanges.push(`<div class="change-item"><strong>Assignee:</strong> <span class="assignee-change">${issue.initialAssignee}</span> → <span class="assignee-change">${issue.currentAssignee}</span></div>`);
-              }
-              
-              // Format priority changes - show ALL changes that happened during the period
-              if (issue.priorityChanges.length > 0) {
-                // Show all priority changes
-                issue.priorityChanges.forEach(change => {
-                  allChanges.push(`<div class="change-item"><strong>Priority:</strong> <span class="priority-change">${change.from || 'Unset'}</span> → <span class="priority-change">${change.to || 'Unset'}</span></div>`);
-                });
-              } else if (issue.initialPriority !== issue.currentPriority) {
-                // No changes in period but initial != current (change happened before period)
-                allChanges.push(`<div class="change-item"><strong>Priority:</strong> <span class="priority-change">${issue.initialPriority}</span> → <span class="priority-change">${issue.currentPriority}</span></div>`);
-              }
-              
-              // Format issue type changes - show ALL changes that happened during the period
-              if (issue.issueTypeChanges.length > 0) {
-                // Show all type changes
-                issue.issueTypeChanges.forEach(change => {
-                  allChanges.push(`<div class="change-item"><strong>Type:</strong> <span class="type-change">${change.from || 'Task'}</span> → <span class="type-change">${change.to || 'Task'}</span></div>`);
-                });
-              } else if (issue.hasIssueTypeChange) {
-                // No changes in period but initial != current (change happened before period)
-                allChanges.push(`<div class="change-item"><strong>Type:</strong> <span class="type-change">${issue.initialIssueType}</span> → <span class="type-change">${issue.currentIssueType}</span></div>`);
-              }
-              
-              return `
-                <div class="ticket">
-                  <div>
-                    <a href="${issue.link}" class="key" target="_blank">${issue.key}</a>
-                  </div>
-                  <div class="summary-text">
-                    <span class="issue-type-badge ${issue.issueType}">${issue.issueType}</span>
-                    ${issue.summary}
-                  </div>
-                  <div>
-                    <span class="assignee">${issue.currentAssignee}</span>
-                  </div>
-                  <div>
-                    <span class="reporter">${issue.reporter}</span>
-                  </div>
-                  <div class="changes-column">
-                    ${allChanges.length > 0 ? allChanges.join('') : '<span style="color: #6B778C;">No changes</span>'}
-                  </div>
-                </div>
-              `;
-            }).join('')}
-            </div>
-          </div>
+    const styles = `
+      <style>
+        .container { max-width: 1600px; margin: 0 auto; }
+        .ticket { display: grid; grid-template-columns: 120px minmax(200px, 1fr) 150px 150px minmax(250px, 1fr); gap: 20px; align-items: start; }
+        .header-row { display: grid; grid-template-columns: 120px minmax(200px, 1fr) 150px 150px minmax(250px, 1fr); gap: 20px; }
+        .changes-column { font-size: 13px; line-height: 1.6; }
+        .change-item { margin-bottom: 6px; }
+        .change-item:last-child { margin-bottom: 0; }
+        .change-item strong { color: #172B4D; font-weight: 600; margin-right: 4px; }
+        .status-badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; white-space: nowrap; }
+        .status-badge.from { background: #FFEBE6; color: #BF2600; }
+        .status-badge.to { background: #E3FCEF; color: #006644; }
+        .status-arrow { color: #6B778C; font-size: 14px; margin: 0 4px; }
+        .assignee-change, .priority-change, .type-change { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 11px; white-space: nowrap; }
+        .assignee-change { background: #DEEBFF; color: #0052CC; }
+        .priority-change { background: #FFF4E6; color: #974F00; }
+        .type-change { background: #EAE6FF; color: #403294; }
+      </style>
+    `;
+    
+    const content = `
+      <h1>PROGRESS REPORT</h1>
+      ${generatePeriodSelector(period, '/progress')}
+      <p class="summary">${processedIssues.length} issue${processedIssues.length !== 1 ? 's' : ''} with changes in ${periodLabel}</p>
+      
+      <div class="tickets-list">
+        <div class="header-row">
+          <div>Key</div>
+          <div>Summary</div>
+          <div>Assignee</div>
+          <div>Reporter</div>
+          <div>Changes</div>
         </div>
-      </body>
-      </html>
+        <div class="tickets-container">
+        ${processedIssues.map(issue => {
+          // Build all changes in order: Status, Assignee, Priority, Type
+          const allChanges = [];
+          
+          // Format status change - show start → end (overall change)
+          if (issue.hasStatusChange) {
+            allChanges.push(`<div class="change-item"><strong>Status:</strong> <span class="status-badge from">${issue.startStatus}</span><span class="status-arrow">→</span><span class="status-badge to">${issue.endStatus}</span></div>`);
+          }
+          
+          // Format assignee changes - show ALL changes that happened during the period
+          if (issue.assigneeChanges.length > 0) {
+            issue.assigneeChanges.forEach(change => {
+              allChanges.push(`<div class="change-item"><strong>Assignee:</strong> <span class="assignee-change">${change.from || 'Unassigned'}</span> → <span class="assignee-change">${change.to || 'Unassigned'}</span></div>`);
+            });
+          } else if (issue.initialAssignee !== issue.currentAssignee) {
+            allChanges.push(`<div class="change-item"><strong>Assignee:</strong> <span class="assignee-change">${issue.initialAssignee}</span> → <span class="assignee-change">${issue.currentAssignee}</span></div>`);
+          }
+          
+          // Format priority changes - show ALL changes that happened during the period
+          if (issue.priorityChanges.length > 0) {
+            issue.priorityChanges.forEach(change => {
+              allChanges.push(`<div class="change-item"><strong>Priority:</strong> <span class="priority-change">${change.from || 'Unset'}</span> → <span class="priority-change">${change.to || 'Unset'}</span></div>`);
+            });
+          } else if (issue.initialPriority !== issue.currentPriority) {
+            allChanges.push(`<div class="change-item"><strong>Priority:</strong> <span class="priority-change">${issue.initialPriority}</span> → <span class="priority-change">${issue.currentPriority}</span></div>`);
+          }
+          
+          // Format issue type changes - show ALL changes that happened during the period
+          if (issue.issueTypeChanges.length > 0) {
+            issue.issueTypeChanges.forEach(change => {
+              allChanges.push(`<div class="change-item"><strong>Type:</strong> <span class="type-change">${change.from || 'Task'}</span> → <span class="type-change">${change.to || 'Task'}</span></div>`);
+            });
+          } else if (issue.hasIssueTypeChange) {
+            allChanges.push(`<div class="change-item"><strong>Type:</strong> <span class="type-change">${issue.initialIssueType}</span> → <span class="type-change">${issue.currentIssueType}</span></div>`);
+          }
+          
+          return `
+            <div class="ticket">
+              <div>
+                <a href="${issue.link}" class="key" target="_blank">${issue.key}</a>
+              </div>
+              <div class="summary-text">
+                <span class="issue-type-badge ${issue.issueType}">${issue.issueType}</span>
+                ${issue.summary}
+              </div>
+              <div>
+                <span class="assignee">${issue.currentAssignee}</span>
+              </div>
+              <div>
+                <span class="reporter">${issue.reporter}</span>
+              </div>
+              <div class="changes-column">
+                ${allChanges.length > 0 ? allChanges.join('') : '<span style="color: #6B778C;">No changes</span>'}
+              </div>
+            </div>
+          `;
+        }).join('')}
+        </div>
+      </div>
     `;
 
-    res.send(html);
+    res.send(renderPage(`Progress Report - ${periodLabel}`, content, styles));
 
   } catch (error) {
     console.error(error);
@@ -1827,28 +1623,11 @@ app.get('/backlog', async (req, res) => {
     console.log(`Found ${issueKeys.length} total open issues`);
     
     if (issueKeys.length === 0) {
-      return res.send(`
-        <html>
-          <head>
-            <title>Backlog Report</title>
-            <link rel="icon" type="image/png" href="/img/favico.png">
-            <style>
-              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 40px; background: #f4f5f7; text-align: center; }
-              h1 { color: #172B4D; }
-              .nav-links { text-align: center; margin-bottom: 20px; font-size: 14px; color: #6B778C; }
-              .nav-links a { color: #0052CC; text-decoration: none; margin: 0 8px; }
-              .nav-links a:hover { text-decoration: underline; }
-            </style>
-          </head>
-          <body>
-            <div class="nav-links">
-              <a href="/">Home</a> | <a href="/slow">Slow Motion</a> | <a href="/done">Completed</a> | <a href="/backlog">Backlog</a> | <a href="/progress">Progress</a>
-            </div>
-            <h1>Backlog</h1>
-            <p style="color: #6B778C; margin-top: 40px;">No backlog issues found</p>
-          </body>
-        </html>
-      `);
+      const content = `
+        <h1>Backlog</h1>
+        <p style="color: #6B778C; margin-top: 40px;">No backlog issues found</p>
+      `;
+      return res.send(renderPage('Backlog Report', content));
     }
     
     // 3. Bulk fetch details with sprint information (handle pagination if needed)
@@ -2120,160 +1899,124 @@ app.get('/backlog', async (req, res) => {
     const maxCount = Math.max(...distributionBuckets.map(b => b.count), 1);
     
     // 8. Generate HTML
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Backlog Report</title>
-        <link rel="icon" type="image/png" href="/img/favico.png">
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 0 40px; background: #f4f5f7; color: #172B4D;}
-          .container { max-width: 1400px; margin: 0 auto; }
-          h1 { text-align: center; margin-bottom: 10px; }
-          .stats-section { background: white; padding: 15px 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin: 20px 0 30px; }
-          .stats-toggle { cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px; color: #172B4D; font-weight: 600; margin-bottom: 15px; user-select: none; }
-          .stats-toggle:hover { color: #0052CC; }
-          .stats-toggle-icon { transition: transform 0.2s; }
-          .stats-toggle-icon.collapsed { transform: rotate(-90deg); }
-          .stats-content { display: none; }
-          .stats-content.expanded { display: flex; gap: 30px; align-items: flex-start; }
-          .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; flex: 1; }
-          .stat-item { background: #F4F5F7; padding: 12px 16px; border-radius: 6px; text-align: center; }
-          .stat-label { font-size: 11px; color: #6B778C; text-transform: uppercase; margin-bottom: 6px; }
-          .stat-value { font-size: 20px; font-weight: 600; color: #172B4D; }
-          .distribution { flex: 1; }
-          .distribution-title { font-size: 12px; color: #6B778C; text-transform: uppercase; margin-bottom: 12px; font-weight: 600; }
-          .distribution-chart { display: flex; align-items: flex-end; gap: 6px; height: 180px; padding: 10px 0; }
-          .distribution-bar-container { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; }
-          .distribution-bar { width: 100%; background: #0052CC; border-radius: 4px 4px 0 0; min-height: 4px; position: relative; display: flex; flex-direction: column; justify-content: flex-end; transition: background 0.2s; }
-          .distribution-bar.empty { background: #EBECF0; }
-          .distribution-bar-value { font-size: 10px; color: #172B4D; font-weight: 600; text-align: center; margin-bottom: 4px; padding: 2px 0; }
-          .distribution-bar-label { font-size: 8px; color: #6B778C; margin-top: 6px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-          .issues-list { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 20px; }
-          .issue { padding: 16px; border-bottom: 1px solid #EBECF0; display: grid; grid-template-columns: 120px 1fr 150px 120px 120px 180px; gap: 20px; align-items: center; }
-          .issue:last-child { border-bottom: none; }
-          .issue:hover { background: #F4F5F7; }
-          .key { font-weight: bold; color: #0052CC; text-decoration: none; white-space: nowrap; }
-          .key:hover { text-decoration: underline; }
-          .summary-text { color: #172B4D; }
-          .status { display: inline-block; background: #EBECF0; padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap; }
-          .reporter { display: inline-block; background: #EBECF0; padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap; }
-          .age { font-weight: 600; color: #172B4D; }
-          .created-date { font-size: 12px; color: #6B778C; }
-          .header-row { padding: 12px 16px; background: #F4F5F7; border-bottom: 2px solid #DFE1E6; font-weight: 600; font-size: 13px; color: #6B778C; text-transform: uppercase; display: grid; grid-template-columns: 120px 1fr 150px 120px 120px 180px; gap: 20px; }
-          .sprint-badge { display: inline-block; background: #E3FCEF; color: #006644; padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap; }
-          .sprint-badge.backlog { background: #EBECF0; color: #6B778C; }
-          .sprint-badge.upcoming { background: #FFF4E6; color: #974F00; }
-          .sprint-badge.current { background: #FFEBE6; color: #BF2600; }
-          .issue-type-badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: 500; text-transform: uppercase; margin-right: 8px; }
-          .issue-type-badge.bug { background: #FFEBE6; color: #BF2600; }
-          .issue-type-badge.story { background: #E3FCEF; color: #006644; }
-          .issue-type-badge.task { background: #DEEBFF; color: #0052CC; }
-          .issue-type-badge.epic { background: #EAE6FF; color: #403294; }
-          .issue-type-badge.subtask { background: #F4F5F7; color: #42526E; }
-          .issue-type-badge.spike { background: #FFF4E6; color: #974F00; }
-          .issue-type-badge.idea { background: #FFF4E6; color: #974F00; }
-          .nav-links { text-align: center; margin-bottom: 20px; font-size: 14px; color: #6B778C; }
-          .nav-links a { color: #0052CC; text-decoration: none; margin: 0 8px; }
-          .nav-links a:hover { text-decoration: underline; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="nav-links">
-            <a href="/">Home</a> | <a href="/slow">Slow Motion</a> | <a href="/done">Completed</a> | <a href="/backlog">Backlog</a> | <a href="/progress">Progress</a>
-          </div>
-          <h1>BACKLOG REPORT</h1>
-          
-          <div class="stats-section">
-            <div class="stats-toggle" onclick="this.nextElementSibling.classList.toggle('expanded'); this.querySelector('.stats-toggle-icon').classList.toggle('collapsed');">
-              <span class="stats-toggle-icon collapsed">▼</span>
-              <span>Statistics & Distribution</span>
-            </div>
-            <div class="stats-content">
-              <div class="distribution">
-                <div class="distribution-title">Age Distribution</div>
-                <div class="distribution-chart">
-                  ${distributionBuckets.map(bucket => {
-                    const height = maxCount > 0 ? (bucket.count / maxCount) * 100 : 0;
-                    const isEmpty = bucket.count === 0;
-                    return `
-                      <div class="distribution-bar-container">
-                        <div class="distribution-bar ${isEmpty ? 'empty' : ''}" style="height: ${height}%;">
-                          ${!isEmpty ? `<div class="distribution-bar-value">${bucket.count}</div>` : ''}
-                        </div>
-                        <div class="distribution-bar-label">${bucket.label}</div>
-                      </div>
-                    `;
-                  }).join('')}
-                </div>
-              </div>
-              <div class="stats">
-                <div class="stat-item">
-                  <div class="stat-label">Total Issues</div>
-                  <div class="stat-value">${totalIssues}</div>
-                </div>
-                <div class="stat-item">
-                  <div class="stat-label">Min Age</div>
-                  <div class="stat-value">${formatAge(minAge)}</div>
-                </div>
-                <div class="stat-item">
-                  <div class="stat-label">Max Age</div>
-                  <div class="stat-value">${formatAge(maxAge)}</div>
-                </div>
-                <div class="stat-item">
-                  <div class="stat-label">Median Age</div>
-                  <div class="stat-value">${formatAge(medianAge)}</div>
-                </div>
-                <div class="stat-item">
-                  <div class="stat-label">Average Age</div>
-                  <div class="stat-value">${formatAge(avgAge)}</div>
-                </div>
-              </div>
+    const styles = `
+      <style>
+        .container { max-width: 1400px; margin: 0 auto; }
+        .stats-section { background: white; padding: 15px 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin: 20px 0 30px; }
+        .stats-toggle { cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px; color: #172B4D; font-weight: 600; margin-bottom: 15px; user-select: none; }
+        .stats-toggle:hover { color: #0052CC; }
+        .stats-toggle-icon { transition: transform 0.2s; }
+        .stats-toggle-icon.collapsed { transform: rotate(-90deg); }
+        .stats-content { display: none; }
+        .stats-content.expanded { display: flex; gap: 30px; align-items: flex-start; }
+        .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; flex: 1; }
+        .stat-item { background: #F4F5F7; padding: 12px 16px; border-radius: 6px; text-align: center; }
+        .stat-label { font-size: 11px; color: #6B778C; text-transform: uppercase; margin-bottom: 6px; }
+        .stat-value { font-size: 20px; font-weight: 600; color: #172B4D; }
+        .distribution { flex: 1; }
+        .distribution-title { font-size: 12px; color: #6B778C; text-transform: uppercase; margin-bottom: 12px; font-weight: 600; }
+        .distribution-chart { display: flex; align-items: flex-end; gap: 6px; height: 180px; padding: 10px 0; }
+        .distribution-bar-container { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; }
+        .distribution-bar { width: 100%; background: #0052CC; border-radius: 4px 4px 0 0; min-height: 4px; position: relative; display: flex; flex-direction: column; justify-content: flex-end; transition: background 0.2s; }
+        .distribution-bar.empty { background: #EBECF0; }
+        .distribution-bar-value { font-size: 10px; color: #172B4D; font-weight: 600; text-align: center; margin-bottom: 4px; padding: 2px 0; }
+        .distribution-bar-label { font-size: 8px; color: #6B778C; margin-top: 6px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+        .issue { display: grid; grid-template-columns: 120px 1fr 150px 120px 120px 180px; gap: 20px; align-items: center; }
+        .header-row { display: grid; grid-template-columns: 120px 1fr 150px 120px 120px 180px; gap: 20px; }
+        .age { font-weight: 600; color: #172B4D; }
+        .created-date { font-size: 12px; color: #6B778C; }
+      </style>
+    `;
+    
+    const content = `
+      <h1>BACKLOG REPORT</h1>
+      
+      <div class="stats-section">
+        <div class="stats-toggle" onclick="this.nextElementSibling.classList.toggle('expanded'); this.querySelector('.stats-toggle-icon').classList.toggle('collapsed');">
+          <span class="stats-toggle-icon collapsed">▼</span>
+          <span>Statistics & Distribution</span>
+        </div>
+        <div class="stats-content">
+          <div class="distribution">
+            <div class="distribution-title">Age Distribution</div>
+            <div class="distribution-chart">
+              ${distributionBuckets.map(bucket => {
+                const height = maxCount > 0 ? (bucket.count / maxCount) * 100 : 0;
+                const isEmpty = bucket.count === 0;
+                return `
+                  <div class="distribution-bar-container">
+                    <div class="distribution-bar ${isEmpty ? 'empty' : ''}" style="height: ${height}%;">
+                      ${!isEmpty ? `<div class="distribution-bar-value">${bucket.count}</div>` : ''}
+                    </div>
+                    <div class="distribution-bar-label">${bucket.label}</div>
+                  </div>
+                `;
+              }).join('')}
             </div>
           </div>
-          
-          <div class="issues-list">
-            <div class="header-row">
-              <div>Key</div>
-              <div>Summary</div>
-              <div>Status</div>
-              <div>Created</div>
-              <div>Reporter</div>
-              <div>Age</div>
+          <div class="stats">
+            <div class="stat-item">
+              <div class="stat-label">Total Issues</div>
+              <div class="stat-value">${totalIssues}</div>
             </div>
-            <div class="issues-container">
-            ${processedIssues.map(issue => `
-              <div class="issue">
-                <div>
-                  <a href="${issue.link}" class="key" target="_blank">${issue.key}</a>
-                </div>
-                <div class="summary-text">
-                  <span class="issue-type-badge ${issue.issueType}">${issue.issueType}</span>
-                  ${issue.summary}
-                </div>
-                <div>
-                  <span class="status">${issue.status}</span>
-                </div>
-                <div>
-                  <div class="created-date">${issue.createdFormatted}</div>
-                </div>
-                <div>
-                  <span class="reporter">${issue.reporter}</span>
-                </div>
-                <div>
-                  <div class="age">${issue.ageText}</div>
-                </div>
-              </div>
-            `).join('')}
+            <div class="stat-item">
+              <div class="stat-label">Min Age</div>
+              <div class="stat-value">${formatAge(minAge)}</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">Max Age</div>
+              <div class="stat-value">${formatAge(maxAge)}</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">Median Age</div>
+              <div class="stat-value">${formatAge(medianAge)}</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">Average Age</div>
+              <div class="stat-value">${formatAge(avgAge)}</div>
             </div>
           </div>
         </div>
-      </body>
-      </html>
+      </div>
+      
+      <div class="issues-list">
+        <div class="header-row">
+          <div>Key</div>
+          <div>Summary</div>
+          <div>Status</div>
+          <div>Created</div>
+          <div>Reporter</div>
+          <div>Age</div>
+        </div>
+        <div class="issues-container">
+        ${processedIssues.map(issue => `
+          <div class="issue">
+            <div>
+              <a href="${issue.link}" class="key" target="_blank">${issue.key}</a>
+            </div>
+            <div class="summary-text">
+              <span class="issue-type-badge ${issue.issueType}">${issue.issueType}</span>
+              ${issue.summary}
+            </div>
+            <div>
+              <span class="status">${issue.status}</span>
+            </div>
+            <div>
+              <div class="created-date">${issue.createdFormatted}</div>
+            </div>
+            <div>
+              <span class="reporter">${issue.reporter}</span>
+            </div>
+            <div>
+              <div class="age">${issue.ageText}</div>
+            </div>
+          </div>
+        `).join('')}
+        </div>
+      </div>
     `;
 
-    res.send(html);
+    res.send(renderPage('Backlog Report', content, styles));
 
   } catch (error) {
     console.error('Error in /backlog route:', error);
