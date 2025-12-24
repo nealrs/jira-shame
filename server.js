@@ -64,6 +64,10 @@ const JIRA_EMAIL = process.env.JIRA_EMAIL;
 const JIRA_API_TOKEN = process.env.JIRA_API_TOKEN;
 const BOARD_ID = process.env.BOARD_ID || 7;
 
+// GitHub Config
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+const GITHUB_ORG = process.env.GITHUB_ORG;
+
 // The statuses you want to track
 const TARGET_STATUSES = ['To Do', 'Ready for Development', 'In Progress', 'In Review'];
 
@@ -73,6 +77,15 @@ const jiraClient = axios.create({
     'Authorization': `Basic ${Buffer.from(`${JIRA_EMAIL}:${JIRA_API_TOKEN}`).toString('base64')}`,
     'Accept': 'application/json',
     'Content-Type': 'application/json'
+  }
+});
+
+const githubClient = axios.create({
+  baseURL: 'https://api.github.com',
+  headers: {
+    'Authorization': `token ${GITHUB_TOKEN}`,
+    'Accept': 'application/vnd.github.v3+json',
+    'User-Agent': 'jira-shame'
   }
 });
 
@@ -2025,6 +2038,409 @@ app.get('/backlog', async (req, res) => {
       console.error('Response data:', JSON.stringify(error.response.data, null, 2));
     }
     res.status(error.response?.status || 500).send(`Error: ${error.message}${error.response ? ` (Status: ${error.response.status})` : ''}`);
+  }
+});
+
+app.get('/pr', async (req, res) => {
+  try {
+    if (!GITHUB_TOKEN || !GITHUB_ORG) {
+      const styles = `
+        <style>
+          .error-message {
+            background: white;
+            border-radius: 8px;
+            padding: 40px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 600px;
+            margin: 40px auto;
+          }
+          .error-message h2 {
+            color: #DE350B;
+            margin-bottom: 20px;
+          }
+          .error-message p {
+            color: #6B778C;
+            line-height: 1.6;
+            margin-bottom: 15px;
+          }
+          .error-message code {
+            background: #F4F5F7;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+            color: #172B4D;
+          }
+          .error-message ul {
+            text-align: left;
+            display: inline-block;
+            margin: 20px 0;
+          }
+          .error-message li {
+            margin: 10px 0;
+            color: #6B778C;
+          }
+        </style>
+      `;
+      
+      const missingVars = [];
+      if (!GITHUB_TOKEN) missingVars.push('GITHUB_TOKEN');
+      if (!GITHUB_ORG) missingVars.push('GITHUB_ORG');
+      
+      const content = `
+        <h1>Pull Requests</h1>
+        <div class="error-message">
+          <h2>⚠️ GitHub Configuration Required</h2>
+          <p>
+            The Pull Requests report requires GitHub API access, but the following environment variables are not configured:
+          </p>
+          <ul>
+            ${missingVars.map(v => `<li><code>${v}</code></li>`).join('')}
+          </ul>
+          <p>
+            To use this feature, please add these variables to your <code>.env</code> file and restart the server.
+          </p>
+          <p style="margin-top: 30px; font-size: 14px; color: #6B778C;">
+            See the README for instructions on creating a GitHub personal access token.
+          </p>
+        </div>
+      `;
+      
+      return res.status(200).send(renderPage('Pull Requests', content, styles));
+    }
+
+    // Fetch all repositories in the org
+    let allRepos = [];
+    let page = 1;
+    let hasMore = true;
+    
+    while (hasMore) {
+      try {
+        const reposResponse = await githubClient.get(`/orgs/${GITHUB_ORG}/repos`, {
+          params: {
+            type: 'all',
+            per_page: 100,
+            page: page,
+            sort: 'updated'
+          }
+        });
+        
+        if (reposResponse.data.length === 0) {
+          hasMore = false;
+        } else {
+          allRepos = allRepos.concat(reposResponse.data);
+          page++;
+          if (reposResponse.data.length < 100) {
+            hasMore = false;
+          }
+        }
+      } catch (error) {
+        console.error(`Error fetching repos page ${page}:`, error.message);
+        hasMore = false;
+      }
+    }
+
+    console.log(`Found ${allRepos.length} repositories in org ${GITHUB_ORG}`);
+
+    // Fetch all open PRs from all repos
+    const allPRs = [];
+    
+    for (const repo of allRepos) {
+      try {
+        let prPage = 1;
+        let hasMorePRs = true;
+        
+        while (hasMorePRs) {
+          const prsResponse = await githubClient.get(`/repos/${repo.full_name}/pulls`, {
+            params: {
+              state: 'open',
+              per_page: 100,
+              page: prPage,
+              sort: 'updated',
+              direction: 'desc'
+            }
+          });
+          
+          if (prsResponse.data.length === 0) {
+            hasMorePRs = false;
+          } else {
+            for (const pr of prsResponse.data) {
+              // Get reviews for this PR
+              let reviews = [];
+              try {
+                const reviewsResponse = await githubClient.get(`/repos/${repo.full_name}/pulls/${pr.number}/reviews`);
+                reviews = reviewsResponse.data;
+              } catch (error) {
+                console.error(`Error fetching reviews for ${repo.full_name}#${pr.number}:`, error.message);
+              }
+              
+              // Get review requests
+              let reviewRequests = [];
+              try {
+                const reviewRequestsResponse = await githubClient.get(`/repos/${repo.full_name}/pulls/${pr.number}/requested_reviewers`);
+                reviewRequests = [
+                  ...(reviewRequestsResponse.data.users || []),
+                  ...(reviewRequestsResponse.data.teams || [])
+                ];
+              } catch (error) {
+                console.error(`Error fetching review requests for ${repo.full_name}#${pr.number}:`, error.message);
+              }
+              
+              // Extract ticket number from PR title or branch name
+              // Common patterns: ENG-1234, ENG-1234, ENG_1234, ENG1234
+              const ticketPattern = /([A-Z]+)[-_]?(\d+)/i;
+              const titleMatch = pr.title.match(ticketPattern);
+              const branchMatch = pr.head.ref.match(ticketPattern);
+              const ticketNumber = titleMatch ? `${titleMatch[1].toUpperCase()}-${titleMatch[2]}` : 
+                                  (branchMatch ? `${branchMatch[1].toUpperCase()}-${branchMatch[2]}` : null);
+              
+              // Process reviews to get reviewer status
+              const reviewerStatuses = {};
+              
+              // Add requested reviewers who haven't reviewed yet
+              reviewRequests.forEach(req => {
+                const reviewerName = req.login || req.slug || (req.name || 'Unknown');
+                if (!reviewerStatuses[reviewerName]) {
+                  reviewerStatuses[reviewerName] = { status: 'requested', state: null };
+                }
+              });
+              
+              // Process actual reviews
+              reviews.forEach(review => {
+                const reviewerName = review.user.login;
+                const state = review.state.toLowerCase(); // APPROVED, CHANGES_REQUESTED, COMMENTED, DISMISSED
+                
+                if (!reviewerStatuses[reviewerName] || reviewerStatuses[reviewerName].state === null) {
+                  reviewerStatuses[reviewerName] = { status: state, state: state };
+                } else if (state === 'approved' || state === 'changes_requested') {
+                  // Override with more definitive status
+                  reviewerStatuses[reviewerName] = { status: state, state: state };
+                }
+              });
+              
+              allPRs.push({
+                number: pr.number,
+                title: pr.title,
+                branch: pr.head.ref,
+                author: pr.user.login,
+                repo: repo.name,
+                repoFullName: repo.full_name,
+                url: pr.html_url,
+                ticketNumber: ticketNumber,
+                isDraft: pr.draft,
+                createdAt: moment(pr.created_at),
+                updatedAt: moment(pr.updated_at),
+                reviewerStatuses: reviewerStatuses,
+                reviewRequests: reviewRequests,
+                reviews: reviews
+              });
+            }
+            
+            prPage++;
+            if (prsResponse.data.length < 100) {
+              hasMorePRs = false;
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`Error fetching PRs from ${repo.full_name}:`, error.message);
+      }
+    }
+
+    // Sort by updated date (most recent first)
+    allPRs.sort((a, b) => b.updatedAt.valueOf() - a.updatedAt.valueOf());
+
+    const styles = `
+      <style>
+        .prs-list {
+          background: white;
+          border-radius: 8px;
+          padding: 20px;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .pr {
+          display: grid;
+          grid-template-columns: 100px 1fr 150px 150px 200px 1fr;
+          gap: 15px;
+          padding: 15px 0;
+          border-bottom: 1px solid #e0e0e0;
+        }
+        .pr:last-child {
+          border-bottom: none;
+        }
+        .pr-header {
+          display: grid;
+          grid-template-columns: 100px 1fr 150px 150px 200px 1fr;
+          gap: 15px;
+          padding: 10px 0;
+          border-bottom: 2px solid #172B4D;
+          font-weight: bold;
+          color: #172B4D;
+          margin-bottom: 10px;
+        }
+        .pr-number {
+          font-weight: bold;
+        }
+        .pr-number a {
+          color: #0052CC;
+          text-decoration: none;
+        }
+        .pr-number a:hover {
+          text-decoration: underline;
+        }
+        .pr-title {
+          font-weight: 500;
+        }
+        .pr-branch {
+          font-family: monospace;
+          font-size: 12px;
+          color: #6B778C;
+        }
+        .pr-author {
+          color: #172B4D;
+        }
+        .pr-dates {
+          font-size: 12px;
+          color: #6B778C;
+        }
+        .pr-reviewers {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+        }
+        .reviewer-item {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          font-size: 12px;
+        }
+        .review-status {
+          padding: 2px 6px;
+          border-radius: 3px;
+          font-size: 11px;
+          font-weight: 500;
+        }
+        .review-status.approved {
+          background: #E3FCEF;
+          color: #006644;
+        }
+        .review-status.changes_requested {
+          background: #FFEBE6;
+          color: #BF2600;
+        }
+        .review-status.commented {
+          background: #DEEBFF;
+          color: #0052CC;
+        }
+        .review-status.requested {
+          background: #F4F5F7;
+          color: #6B778C;
+        }
+        .review-status.dismissed {
+          background: #F4F5F7;
+          color: #6B778C;
+          text-decoration: line-through;
+        }
+        .no-reviewers {
+          color: #FF5630;
+          font-weight: 500;
+          font-size: 12px;
+        }
+        .draft-badge {
+          background: #F4F5F7;
+          color: #6B778C;
+          padding: 2px 6px;
+          border-radius: 3px;
+          font-size: 11px;
+          font-weight: 500;
+          display: inline-block;
+          margin-left: 5px;
+        }
+        .ticket-number {
+          background: #0052CC;
+          color: white;
+          padding: 2px 6px;
+          border-radius: 3px;
+          font-size: 11px;
+          font-weight: 500;
+          display: inline-block;
+          margin-right: 5px;
+        }
+      </style>
+    `;
+
+    const content = `
+      <h1>Pull Requests</h1>
+      <p class="summary">Open Pull Requests in ${GITHUB_ORG}</p>
+      
+      <div class="prs-list">
+        <div class="pr-header">
+          <div>PR #</div>
+          <div>Title</div>
+          <div>Branch</div>
+          <div>Author</div>
+          <div>Dates</div>
+          <div>Reviewers</div>
+        </div>
+        ${allPRs.length === 0 ? '<p>No open pull requests found.</p>' : allPRs.map(pr => {
+          const reviewersHtml = Object.keys(pr.reviewerStatuses).length === 0 && !pr.isDraft
+            ? '<span class="no-reviewers">⚠️ No reviewers assigned</span>'
+            : Object.entries(pr.reviewerStatuses).map(([reviewer, status]) => {
+                const statusClass = status.status === 'approved' ? 'approved' :
+                                  status.status === 'changes_requested' ? 'changes_requested' :
+                                  status.status === 'commented' ? 'commented' :
+                                  status.status === 'requested' ? 'requested' :
+                                  status.status === 'dismissed' ? 'dismissed' : 'requested';
+                const statusLabel = status.status === 'approved' ? '✓ Approved' :
+                                  status.status === 'changes_requested' ? '✗ Changes Requested' :
+                                  status.status === 'commented' ? '💬 Commented' :
+                                  status.status === 'requested' ? '⏳ Requested' :
+                                  status.status === 'dismissed' ? 'Dismissed' : 'Pending';
+                return `
+                  <div class="reviewer-item">
+                    <span>${reviewer}</span>
+                    <span class="review-status ${statusClass}">${statusLabel}</span>
+                  </div>
+                `;
+              }).join('');
+          
+          return `
+            <div class="pr">
+              <div class="pr-number">
+                <a href="${pr.url}" target="_blank">#${pr.number}</a>
+                ${pr.isDraft ? '<span class="draft-badge">Draft</span>' : ''}
+              </div>
+              <div class="pr-title">
+                ${pr.ticketNumber ? `<span class="ticket-number">${pr.ticketNumber}</span>` : ''}
+                ${pr.title}
+              </div>
+              <div class="pr-branch">${pr.branch}</div>
+              <div class="pr-author">${pr.author}</div>
+              <div class="pr-dates">
+                <div>Opened: ${pr.createdAt.format('MM/DD/YY')}</div>
+                <div>Updated: ${pr.updatedAt.format('MM/DD/YY')}</div>
+              </div>
+              <div class="pr-reviewers">
+                ${reviewersHtml}
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+
+    res.send(renderPage('Pull Requests', content, styles));
+
+  } catch (error) {
+    console.error('Error in /pr route:', error);
+    if (error.response) {
+      console.error('Response status:', error.response.status);
+      console.error('Response data:', JSON.stringify(error.response.data, null, 2));
+    }
+    res.status(error.response?.status || 500).send(renderPage('Pull Requests', `
+      <h1>Pull Requests</h1>
+      <p>Error: ${error.message}${error.response ? ` (Status: ${error.response.status})` : ''}</p>
+    `, ''));
   }
 });
 

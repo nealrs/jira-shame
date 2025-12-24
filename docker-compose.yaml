@@ -8,4 +8,6 @@ services:
       - JIRA_EMAIL=${JIRA_EMAIL}
       - JIRA_API_TOKEN=${JIRA_API_TOKEN}
       - BOARD_ID=${JIRA_BOARD_ID}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_ORG=${GITHUB_ORG}
     restart: unless-stopped

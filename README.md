@@ -1,12 +1,16 @@
 # The Blame Game
 
-Express app that connects to JIRA and provides three views for tracking ticket progress:
+Express app that connects to JIRA and GitHub to provide views for tracking ticket progress and pull request reviews:
 
 **Slow Motion** (`/slow`) - Shows tickets that have been stuck in the same status for 7+ days
 
 **Completed Tickets** (`/done`) - Shows all tickets completed in a selected time period
 
 **Backlog** (`/backlog`) - Shows all issues currently in the backlog (not in active sprint), sorted by creation date
+
+**Progress** (`/progress`) - Track recent progress by viewing issues that have changed status in a selected time period
+
+**Pull Requests** (`/pr`) - View all open pull requests across your GitHub organization with review status
 
 ## How It Works
 
@@ -70,6 +74,18 @@ The app monitors tickets in these statuses:
 3. Give it a label (e.g., "Jira Shame App")
 4. Copy the token (you won't be able to see it again)
 
+### 1a. Get Your GitHub Personal Access Token (Optional - for Pull Requests route)
+
+To use the `/pr` route, you'll need a GitHub personal access token:
+
+1. Go to GitHub Settings → Developer settings → Personal access tokens → Tokens (classic)
+2. Click "Generate new token (classic)"
+3. Give it a label (e.g., "Jira Shame Review")
+4. Select scopes: `repo` (for private repos) or `public_repo` (for public repos only)
+5. Click "Generate token"
+6. Copy the token (you won't be able to see it again)
+7. Add it to your `.env` file as `GITHUB_TOKEN`
+
 ### 2. Configure Environment Variables
 
 Copy the example environment file and fill in your values:
@@ -78,13 +94,15 @@ Copy the example environment file and fill in your values:
 cp .env.example .env
 ```
 
-Edit `.env` with your Jira credentials:
+Edit `.env` with your Jira and GitHub credentials:
 
 ```env
 JIRA_HOST=your-domain.atlassian.net
 JIRA_EMAIL=your-email@example.com
 JIRA_API_TOKEN=your-api-token-here
 BOARD_ID=7
+GITHUB_TOKEN=your-github-personal-access-token
+GITHUB_ORG=your-github-org-name
 PORT=3000
 ```
 
@@ -92,6 +110,8 @@ PORT=3000
 - `JIRA_HOST`: Your Jira instance hostname (without `https://`)
 - `JIRA_EMAIL`: Your Jira account email address
 - `JIRA_API_TOKEN`: The API token you created in step 1
+- `GITHUB_TOKEN`: Your GitHub personal access token (required for `/pr` route)
+- `GITHUB_ORG`: Your GitHub organization name (required for `/pr` route)
 
 **Optional Variables:**
 - `BOARD_ID`: The ID of your Jira board (defaults to `7`)
@@ -218,6 +238,8 @@ docker run -p 3000:3000 --env-file .env jira-shame
 - `GET /slow` - Slow Motion report showing stagnant tickets
 - `GET /done` - Completed tickets report (supports `?period=today|yesterday|this-week|last-7-days|this-month|last-month`)
 - `GET /backlog` - Backlog report showing all issues not in active sprint, sorted by creation date
+- `GET /progress` - Progress report showing issues that changed status in a selected time period
+- `GET /pr` - Pull Requests report showing all open pull requests with review status across GitHub organization
 
 ## Technologies Used
 
