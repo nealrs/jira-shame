@@ -2537,7 +2537,7 @@ app.get('/load', async (req, res) => {
 
     if (!projectKey) {
       return res.status(500).send(renderPage('Load Report', `
-        <h1>Load Report</h1>
+        <h1>Sprint Load</h1>
         <p>Error: Could not determine project key. Please check board configuration.</p>
       `, ''));
     }
@@ -2721,7 +2721,7 @@ app.get('/load', async (req, res) => {
     } catch (error) {
       console.error('Error fetching current sprint issues:', error.message);
       return res.status(500).send(renderPage('Load Report', `
-        <h1>Load Report</h1>
+        <h1>Sprint Load</h1>
         <p>Error fetching current sprint issues: ${error.message}</p>
       `, ''));
     }
@@ -2892,6 +2892,28 @@ app.get('/load', async (req, res) => {
           font-weight: 600;
           color: #172B4D;
           border-bottom: 2px solid #C1C7D0;
+          position: relative;
+        }
+        .load-table th.sortable {
+          cursor: pointer;
+          user-select: none;
+        }
+        .load-table th.sortable:hover {
+          background: #C1C7D0;
+        }
+        .load-table th .sort-indicator {
+          display: inline-block;
+          margin-left: 6px;
+          color: #6B778C;
+          font-size: 12px;
+        }
+        .load-table th.sort-asc .sort-indicator::after {
+          content: '▲';
+          color: #0052CC;
+        }
+        .load-table th.sort-desc .sort-indicator::after {
+          content: '▼';
+          color: #0052CC;
         }
         .load-table td {
           padding: 12px 16px;
@@ -2951,6 +2973,80 @@ app.get('/load', async (req, res) => {
           color: #0052CC;
         }
       </style>
+      <script>
+        function sortTable(tableId, columnIndex, isNumeric = false) {
+          const table = document.getElementById(tableId);
+          if (!table) return;
+          
+          const tbody = table.querySelector('tbody');
+          const rows = Array.from(tbody.querySelectorAll('tr:not(.total-row)'));
+          const header = table.querySelectorAll('thead th')[columnIndex];
+          
+          // Remove sort classes from all headers
+          table.querySelectorAll('thead th').forEach(th => {
+            th.classList.remove('sort-asc', 'sort-desc');
+          });
+          
+          // Determine sort direction (toggle: no sort -> asc -> desc -> asc)
+          const isCurrentlyDesc = header.classList.contains('sort-desc');
+          const isCurrentlyAsc = header.classList.contains('sort-asc');
+          header.classList.remove('sort-asc', 'sort-desc');
+          
+          // If currently descending, switch to ascending; if ascending, switch to descending; if no sort, start ascending
+          const isAsc = isCurrentlyDesc || (!isCurrentlyAsc && !isCurrentlyDesc);
+          header.classList.add(isAsc ? 'sort-asc' : 'sort-desc');
+          
+          // Sort rows
+          rows.sort((a, b) => {
+            const aCell = a.cells[columnIndex];
+            const bCell = b.cells[columnIndex];
+            
+            let aValue, bValue;
+            
+            if (isNumeric) {
+              // Extract numeric value (handle strong tags, etc.)
+              aValue = parseFloat(aCell.textContent.trim()) || 0;
+              bValue = parseFloat(bCell.textContent.trim()) || 0;
+            } else {
+              // Text comparison
+              aValue = aCell.textContent.trim().toLowerCase();
+              bValue = bCell.textContent.trim().toLowerCase();
+            }
+            
+            if (aValue < bValue) return isAsc ? 1 : -1;
+            if (aValue > bValue) return isAsc ? -1 : 1;
+            return 0;
+          });
+          
+          // Re-append sorted rows (excluding total row)
+          const totalRow = tbody.querySelector('.total-row');
+          rows.forEach(row => tbody.appendChild(row));
+          if (totalRow) {
+            tbody.appendChild(totalRow);
+          }
+        }
+        
+        // Initialize sortable headers on page load
+        function initTableSorting() {
+          document.querySelectorAll('.load-table').forEach((table) => {
+            const headers = Array.from(table.querySelectorAll('thead th.sortable'));
+            headers.forEach((th, index) => {
+              th.addEventListener('click', function() {
+                const tableId = table.id;
+                const isNumeric = this.classList.contains('sort-numeric');
+                sortTable(tableId, index, isNumeric);
+              });
+            });
+          });
+        }
+        
+        // Run on DOMContentLoaded and also immediately (in case DOM is already loaded)
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', initTableSorting);
+        } else {
+          initTableSorting();
+        }
+      </script>
     `;
 
     // Build current sprint load table
@@ -2958,12 +3054,6 @@ app.get('/load', async (req, res) => {
     if (currentSprint) {
       const startDate = currentSprint.startDate ? moment(currentSprint.startDate).format('MMM D, YYYY') : 'Not set';
       const endDate = currentSprint.endDate ? moment(currentSprint.endDate).format('MMM D, YYYY') : 'Not set';
-      const sprintInfoHTML = `
-        <div class="sprint-info">
-          <strong>Current Sprint:</strong> ${currentSprint.name} 
-          ${currentSprint.startDate && currentSprint.endDate ? `(${startDate} - ${endDate})` : ''}
-        </div>
-      `;
       
       // Sort assignees with "Unassigned" at the end
       const currentSprintAssigneesList = Array.from(currentSprintAssignees).sort((a, b) => {
@@ -2974,15 +3064,14 @@ app.get('/load', async (req, res) => {
       
       currentSprintHTML = `
         <div class="load-section">
-          <h2>Current Sprint Load</h2>
-          ${sprintInfoHTML}
+          <h2>Current Sprint: ${currentSprint.name}${currentSprint.startDate && currentSprint.endDate ? ` (${startDate} - ${endDate})` : ''}</h2>
           <p class="summary">Ticket count per team member by board column for the current sprint</p>
-          <table class="load-table">
+          <table class="load-table" id="current-sprint-table">
             <thead>
               <tr>
-                <th>Team Member</th>
-                ${boardColumns.map(col => `<th>${col.name}</th>`).join('')}
-                <th>Total</th>
+                <th class="sortable">Team Member<span class="sort-indicator"></span></th>
+                ${boardColumns.map(col => `<th class="sortable sort-numeric">${col.name}<span class="sort-indicator"></span></th>`).join('')}
+                <th class="sortable sort-numeric">Total<span class="sort-indicator"></span></th>
               </tr>
             </thead>
             <tbody>
@@ -3046,14 +3135,14 @@ app.get('/load', async (req, res) => {
       
       upcomingSprintsHTML = `
         <div class="load-section">
-          <h2>Upcoming Sprint Load</h2>
+          <h2>Upcoming Sprint</h2>
           <p class="summary">Ticket count per team member for upcoming sprints (not yet started/active)</p>
-          <table class="load-table">
+          <table class="load-table" id="upcoming-sprints-table">
             <thead>
               <tr>
-                <th>Team Member</th>
-                ${upcomingSprints.map(sprint => `<th>${sprint.name}</th>`).join('')}
-                <th>Total</th>
+                <th class="sortable">Team Member<span class="sort-indicator"></span></th>
+                ${upcomingSprints.map(sprint => `<th class="sortable sort-numeric">${sprint.name}<span class="sort-indicator"></span></th>`).join('')}
+                <th class="sortable sort-numeric">Total<span class="sort-indicator"></span></th>
               </tr>
             </thead>
             <tbody>
@@ -3105,14 +3194,14 @@ app.get('/load', async (req, res) => {
     } else {
       upcomingSprintsHTML = `
         <div class="load-section">
-          <h2>Upcoming Sprint Load</h2>
+          <h2>Upcoming Sprints</h2>
           <p class="summary">No upcoming sprints found.</p>
         </div>
       `;
     }
 
     const content = `
-      <h1>Load Report</h1>
+      <h1>Sprint Load</h1>
       ${currentSprintHTML}
       ${upcomingSprintsHTML}
     `;
@@ -3121,7 +3210,7 @@ app.get('/load', async (req, res) => {
   } catch (error) {
     console.error('Error in /load route:', error);
     res.status(error.response?.status || 500).send(renderPage('Load Report', `
-      <h1>Load Report</h1>
+      <h1>Sprint Load</h1>
       <p>Error: ${error.message}${error.response ? ` (Status: ${error.response.status})` : ''}</p>
     `, ''));
   }
