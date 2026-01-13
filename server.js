@@ -202,6 +202,16 @@ app.get('/', (req, res) => {
         </p>
         <a href="/progress" class="route-link">View Progress</a>
       </div>
+      
+      <div class="route-card">
+        <div class="icon">⚖️</div>
+        <h2>LOAD</h2>
+        <p>
+          View ticket load distribution across team members. See how many tickets each team member 
+          has in each board column, and upcoming sprint assignments to help balance sprint loads.
+        </p>
+        <a href="/load" class="route-link">View Load</a>
+      </div>
     </div>
   `;
   
@@ -2439,6 +2449,679 @@ app.get('/pr', async (req, res) => {
     }
     res.status(error.response?.status || 500).send(renderPage('Pull Requests', `
       <h1>Pull Requests</h1>
+      <p>Error: ${error.message}${error.response ? ` (Status: ${error.response.status})` : ''}</p>
+    `, ''));
+  }
+});
+
+app.get('/load', async (req, res) => {
+  try {
+    // 1. Get board configuration to get columns (statuses) and project key
+    let boardColumns = [];
+    let projectKey = null;
+    try {
+      const configResponse = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}/configuration`);
+      const columnConfig = configResponse.data.columnConfig;
+      if (columnConfig && columnConfig.columns) {
+        boardColumns = columnConfig.columns.map(col => {
+          // Extract status names - handle different possible structures
+          let statusNames = [];
+          if (col.statuses && Array.isArray(col.statuses) && col.statuses.length > 0) {
+            statusNames = col.statuses.map(s => {
+              // Status can be an object with 'name' property or just a string
+              if (typeof s === 'object' && s !== null) {
+                return s.name || s.id || String(s);
+              }
+              return String(s);
+            });
+          }
+          // If statuses array is empty, try to map column name to common status names
+          if (statusNames.length === 0 && col.name) {
+            // Try to map common column names to status names
+            const columnName = col.name.toLowerCase();
+            if (columnName.includes('to do') || columnName.includes('todo')) {
+              statusNames = ['To Do'];
+            } else if (columnName.includes('ready') || columnName.includes('development')) {
+              statusNames = ['Ready for Development'];
+            } else if (columnName.includes('progress')) {
+              statusNames = ['In Progress'];
+            } else if (columnName.includes('review')) {
+              statusNames = ['In Review'];
+            } else if (columnName.includes('done')) {
+              statusNames = ['Done'];
+            }
+          }
+          return {
+            name: col.name,
+            statuses: statusNames
+          };
+        });
+      }
+      
+      // Log board columns for debugging
+      console.log('Board columns parsed:', boardColumns.map(col => `${col.name}: [${col.statuses.join(', ')}]`).join(' | '));
+      
+      // Get project key from board location
+      const boardResponse = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}`);
+      if (boardResponse.data && boardResponse.data.location) {
+        projectKey = boardResponse.data.location.projectKey;
+      }
+    } catch (error) {
+      console.error('Error fetching board configuration:', error.message);
+      // Fallback: use common statuses if config fetch fails
+      boardColumns = [
+        { name: 'To Do', statuses: ['To Do'] },
+        { name: 'In Progress', statuses: ['In Progress', 'Ready for Development'] },
+        { name: 'In Review', statuses: ['In Review'] },
+        { name: 'Done', statuses: ['Done'] }
+      ];
+    }
+
+    // If we couldn't get project key from board, try to get it from a sample issue
+    if (!projectKey) {
+      try {
+        const sampleIssueResponse = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}/issue`, {
+          params: {
+            fields: 'key',
+            maxResults: 1
+          }
+        });
+        if (sampleIssueResponse.data.issues && sampleIssueResponse.data.issues.length > 0) {
+          const issueKey = sampleIssueResponse.data.issues[0].key;
+          projectKey = issueKey.split('-')[0]; // Extract project key from issue key (e.g., "ENG-123" -> "ENG")
+        }
+      } catch (error) {
+        console.error('Error getting project key from sample issue:', error.message);
+      }
+    }
+
+    if (!projectKey) {
+      return res.status(500).send(renderPage('Load Report', `
+        <h1>Load Report</h1>
+        <p>Error: Could not determine project key. Please check board configuration.</p>
+      `, ''));
+    }
+
+    // 2. Get issues from current sprint using openSprints() JQL function
+    const currentSprintAssignees = new Set();
+    const currentSprintLoadByAssignee = new Map(); // Map<assigneeName, Map<columnName, count>>
+    const assigneeAvatars = new Map(); // Map<assigneeName, avatarUrl>
+    let currentSprint = null;
+    let currentSprintIssues = [];
+    
+    try {
+      const jqlQuery = `project = "${projectKey}" AND sprint in openSprints() ORDER BY created DESC`;
+      let startAt = 0;
+      const maxResults = 100;
+      let hasMore = true;
+      
+      while (hasMore) {
+        const boardResponse = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}/issue`, {
+          params: {
+            jql: jqlQuery,
+            fields: 'key,status,assignee,sprint',
+            startAt: startAt,
+            maxResults: maxResults
+          }
+        });
+        
+        const issues = boardResponse.data.issues || [];
+        currentSprintIssues = currentSprintIssues.concat(issues);
+        
+        const total = boardResponse.data.total || 0;
+        startAt += issues.length;
+        hasMore = startAt < total && issues.length > 0;
+      }
+      
+      // Get sprint info - collect all unique sprint IDs from issues
+      const currentSprintIds = new Set();
+      currentSprintIssues.forEach(issue => {
+        if (issue.fields.sprint) {
+          if (Array.isArray(issue.fields.sprint)) {
+            issue.fields.sprint.forEach(sprint => {
+              if (sprint && sprint.id) {
+                currentSprintIds.add(sprint.id);
+              }
+            });
+          } else if (issue.fields.sprint.id) {
+            currentSprintIds.add(issue.fields.sprint.id);
+          }
+        }
+      });
+      
+      // Get sprint details - use the first one (should only be one open sprint)
+      if (currentSprintIds.size > 0) {
+        const sprintId = Array.from(currentSprintIds)[0];
+        try {
+          const sprintResponse = await jiraClient.get(`/rest/agile/1.0/sprint/${sprintId}`);
+          currentSprint = sprintResponse.data;
+          console.log(`Current sprint detected: ${currentSprint.name} (ID: ${sprintId})`);
+        } catch (error) {
+          console.error('Error fetching sprint details:', error.message);
+        }
+      } else {
+        console.log('No sprint IDs found in current sprint issues');
+      }
+      
+      // Process current sprint issues - count ALL issues including unassigned
+      const statusCounts = new Map();
+      const unmappedStatuses = new Set();
+      let assignedCount = 0;
+      let unassignedCount = 0;
+      const unassignedLoad = new Map(); // Map<columnName, count> for unassigned issues
+      
+      currentSprintIssues.forEach(issue => {
+        const statusName = issue.fields.status ? issue.fields.status.name : 'Unknown';
+        const assigneeName = issue.fields.assignee ? issue.fields.assignee.displayName : null;
+        
+        // Track status counts for debugging
+        statusCounts.set(statusName, (statusCounts.get(statusName) || 0) + 1);
+        
+        // Find which column this status belongs to
+        // Normalize status name for comparison (lowercase, trim)
+        const normalizedStatusName = statusName.toLowerCase().trim();
+        let columnName = 'Other';
+        let statusMapped = false;
+        
+        for (const column of boardColumns) {
+          // Compare normalized status name to normalized column name
+          if (column.name) {
+            const normalizedColumnName = column.name.toLowerCase().trim();
+            if (normalizedColumnName === normalizedStatusName) {
+              columnName = column.name;
+              statusMapped = true;
+              break;
+            }
+          }
+        }
+        
+        if (!statusMapped && statusName !== 'Unknown') {
+          unmappedStatuses.add(statusName);
+        }
+        
+        // Count all issues, assigned or unassigned
+        if (assigneeName) {
+          assignedCount++;
+          // Collect assignee
+          currentSprintAssignees.add(assigneeName);
+          
+          // Collect avatar URL if available
+          if (issue.fields.assignee && issue.fields.assignee.avatarUrls) {
+            const avatarUrl = issue.fields.assignee.avatarUrls['48x48'] || 
+                             issue.fields.assignee.avatarUrls['32x32'] ||
+                             issue.fields.assignee.avatarUrls['24x24'];
+            if (avatarUrl && !assigneeAvatars.has(assigneeName)) {
+              assigneeAvatars.set(assigneeName, avatarUrl);
+            }
+          }
+          
+          if (!currentSprintLoadByAssignee.has(assigneeName)) {
+            currentSprintLoadByAssignee.set(assigneeName, new Map());
+          }
+          
+          const assigneeLoad = currentSprintLoadByAssignee.get(assigneeName);
+          const currentCount = assigneeLoad.get(columnName) || 0;
+          assigneeLoad.set(columnName, currentCount + 1);
+        } else {
+          unassignedCount++;
+          // Track unassigned issues by column
+          const currentUnassignedCount = unassignedLoad.get(columnName) || 0;
+          unassignedLoad.set(columnName, currentUnassignedCount + 1);
+        }
+      });
+      
+      // Add "Unassigned" to the assignees set if there are unassigned issues
+      if (unassignedCount > 0) {
+        currentSprintAssignees.add('Unassigned');
+        currentSprintLoadByAssignee.set('Unassigned', unassignedLoad);
+        // Add default avatar for unassigned (gray placeholder)
+        if (!assigneeAvatars.has('Unassigned')) {
+          // Use a simple data URI for a gray placeholder avatar
+          assigneeAvatars.set('Unassigned', 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNCIgZmlsbD0iI0Q0RTVGNyIvPgo8cGF0aCBkPSJNMTYgMTBDMTguMjA5MSAxMCAyMCAxMS43OTA5IDIwIDE0QzIwIDE2LjIwOTEgMTguMjA5MSAxOCAxNiAxOEMxMy43OTA5IDE4IDEyIDE2LjIwOTEgMTIgMTRDMTIgMTEuNzkwOSAxMy43OTA5IDEwIDE2IDEwWk0xNiAyMEMxOC42NzYxIDIwIDIwLjg4ODkgMjEuMjY3OCAyMiAyMy4zMzMzQzIyIDE5LjU1NzkgMTkuMzEzNyAxNyAxNiAxN0MxMi42ODYzIDE3IDEwIDE5LjU1NzkgMTAgMjMuMzMzM0MxMS4xMTExIDIxLjI2NzggMTMuMzIzOSAyMCAxNiAyMFoiIGZpbGw9IiM2Qjc4OEMiLz4KPC9zdmc+');
+        }
+      }
+      
+      console.log(`Assigned issues: ${assignedCount}, Unassigned: ${unassignedCount}`);
+      console.log(`Found ${currentSprintIssues.length} issues in current sprint`);
+      console.log(`Status breakdown:`, Array.from(statusCounts.entries()).map(([status, count]) => `${status}: ${count}`).join(', '));
+      console.log(`Board columns:`, boardColumns.map(col => `${col.name}: [${col.statuses.join(', ')}]`).join(' | '));
+      
+      if (unmappedStatuses.size > 0) {
+        console.log(`WARNING: Unmapped statuses found: ${Array.from(unmappedStatuses).join(', ')}`);
+        console.log(`These statuses are not matching any board column. Check status name casing/spelling.`);
+      }
+      
+      console.log(`Current sprint assignees: ${Array.from(currentSprintAssignees).join(', ')}`);
+      
+      // Log detailed sample of what we're counting
+      const sampleAssignees = Array.from(currentSprintLoadByAssignee.entries()).slice(0, 5);
+      if (sampleAssignees.length > 0) {
+        console.log(`Load by assignee (first 5):`, sampleAssignees.map(([name, load]) => `${name}: ${JSON.stringify(Object.fromEntries(load))}`).join(', '));
+      } else {
+        console.log(`ERROR: No assignee load data found! This means no issues were counted.`);
+        // Log first few issues to debug
+        console.log(`Sample issues (first 5):`, currentSprintIssues.slice(0, 5).map(issue => ({
+          key: issue.key,
+          status: issue.fields.status?.name,
+          assignee: issue.fields.assignee?.displayName || 'UNASSIGNED',
+          hasStatus: !!issue.fields.status,
+          hasAssignee: !!issue.fields.assignee,
+          fieldsKeys: Object.keys(issue.fields || {})
+        })));
+      }
+      
+      // Verify total counts
+      let totalCounted = 0;
+      currentSprintLoadByAssignee.forEach((load) => {
+        load.forEach((count) => {
+          totalCounted += count;
+        });
+      });
+      console.log(`Total issues counted in load map: ${totalCounted} (should be ${currentSprintIssues.length})`);
+    } catch (error) {
+      console.error('Error fetching current sprint issues:', error.message);
+      return res.status(500).send(renderPage('Load Report', `
+        <h1>Load Report</h1>
+        <p>Error fetching current sprint issues: ${error.message}</p>
+      `, ''));
+    }
+
+    // 3. Get ALL future sprints from the board API, then get their issues
+    const upcomingLoadByAssignee = new Map(); // Map<assigneeName, Map<sprintName, count>>
+    const upcomingSprintsMap = new Map(); // Map<sprintId, sprintObject>
+    let upcomingSprints = [];
+    
+    try {
+      // First, get all sprints from the board to find future ones
+      const sprintsResponse = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}/sprint`, {
+        params: {
+          maxResults: 50
+        }
+      });
+      
+      const allSprints = sprintsResponse.data.values || [];
+      const now = moment();
+      
+      // Identify future sprints (not active, start date in future or no start date)
+      const futureSprintIds = new Set();
+      allSprints.forEach(sprint => {
+        let isActive = false;
+        if (sprint.startDate && sprint.endDate) {
+          const startDate = moment(sprint.startDate);
+          const endDate = moment(sprint.endDate);
+          isActive = now.isBetween(startDate, endDate, null, '[]');
+        }
+        
+        // Future sprint: not active and (no start date OR start date in future)
+        if (!isActive) {
+          if (!sprint.startDate || moment(sprint.startDate).isAfter(now)) {
+            futureSprintIds.add(sprint.id);
+            upcomingSprintsMap.set(sprint.id, sprint);
+          }
+        }
+      });
+      
+      // Get all future sprint issues using futureSprints() JQL
+      const jqlQuery = `project = "${projectKey}" AND sprint in futureSprints() ORDER BY created DESC`;
+      let startAt = 0;
+      const maxResults = 100;
+      let hasMore = true;
+      const futureSprintIssues = [];
+      
+      while (hasMore) {
+        const boardResponse = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}/issue`, {
+          params: {
+            jql: jqlQuery,
+            fields: 'key,assignee,sprint',
+            startAt: startAt,
+            maxResults: maxResults
+          }
+        });
+        
+        const issues = boardResponse.data.issues || [];
+        futureSprintIssues.push(...issues);
+        
+        const total = boardResponse.data.total || 0;
+        startAt += issues.length;
+        hasMore = startAt < total && issues.length > 0;
+      }
+      
+      // Build list of all future sprints (including ones with no tickets)
+      upcomingSprints = Array.from(futureSprintIds)
+        .map(id => upcomingSprintsMap.get(id))
+        .filter(s => s !== undefined);
+      
+      // Sort upcoming sprints by end date (sprints with no dates go at the end)
+      upcomingSprints.sort((a, b) => {
+        if (a.endDate && b.endDate) {
+          return moment(a.endDate).valueOf() - moment(b.endDate).valueOf();
+        }
+        if (a.endDate && !b.endDate) {
+          return -1;
+        }
+        if (!a.endDate && b.endDate) {
+          return 1;
+        }
+        return 0;
+      });
+      
+      // Process future sprint issues - include unassigned
+      const upcomingUnassignedBySprint = new Map(); // Map<sprintName, count>
+      
+      futureSprintIssues.forEach(issue => {
+        const assigneeName = issue.fields.assignee ? issue.fields.assignee.displayName : null;
+        
+        if (issue.fields.sprint) {
+          const sprintId = Array.isArray(issue.fields.sprint) 
+            ? issue.fields.sprint[0].id 
+            : issue.fields.sprint.id;
+          
+          const sprint = upcomingSprintsMap.get(sprintId);
+          if (sprint) {
+            const sprintName = sprint.name;
+            
+            if (assigneeName && currentSprintAssignees.has(assigneeName)) {
+              // Assigned to current sprint team member
+              if (!upcomingLoadByAssignee.has(assigneeName)) {
+                upcomingLoadByAssignee.set(assigneeName, new Map());
+              }
+              
+              // Collect avatar URL if available
+              if (issue.fields.assignee && issue.fields.assignee.avatarUrls) {
+                const avatarUrl = issue.fields.assignee.avatarUrls['48x48'] || 
+                                 issue.fields.assignee.avatarUrls['32x32'] ||
+                                 issue.fields.assignee.avatarUrls['24x24'];
+                if (avatarUrl && !assigneeAvatars.has(assigneeName)) {
+                  assigneeAvatars.set(assigneeName, avatarUrl);
+                }
+              }
+              
+              const assigneeUpcomingLoad = upcomingLoadByAssignee.get(assigneeName);
+              const currentCount = assigneeUpcomingLoad.get(sprintName) || 0;
+              assigneeUpcomingLoad.set(sprintName, currentCount + 1);
+            } else if (!assigneeName) {
+              // Unassigned issue
+              const currentUnassignedCount = upcomingUnassignedBySprint.get(sprintName) || 0;
+              upcomingUnassignedBySprint.set(sprintName, currentUnassignedCount + 1);
+            }
+          }
+        }
+      });
+      
+      // Add unassigned to the assignees set if there are unassigned issues
+      if (upcomingUnassignedBySprint.size > 0) {
+        currentSprintAssignees.add('Unassigned');
+        upcomingLoadByAssignee.set('Unassigned', upcomingUnassignedBySprint);
+        // Add default avatar for unassigned (gray placeholder) if not already set
+        if (!assigneeAvatars.has('Unassigned')) {
+          // Use a simple data URI for a gray placeholder avatar
+          assigneeAvatars.set('Unassigned', 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNCIgZmlsbD0iI0Q0RTVGNyIvPgo8cGF0aCBkPSJNMTYgMTBDMTguMjA5MSAxMCAyMCAxMS43OTA5IDIwIDE0QzIwIDE2LjIwOTEgMTguMjA5MSAxOCAxNiAxOEMxMy43OTA5IDE4IDEyIDE2LjIwOTEgMTIgMTRDMTIgMTEuNzkwOSAxMy43OTA5IDEwIDE2IDEwWk0xNiAyMEMxOC42NzYxIDIwIDIwLjg4ODkgMjEuMjY3OCAyMiAyMy4zMzMzQzIyIDE5LjU1NzkgMTkuMzEzNyAxNyAxNiAxN0MxMi42ODYzIDE3IDEwIDE5LjU1NzkgMTAgMjMuMzMzM0MxMS4xMTExIDIxLjI2NzggMTMuMzIzOSAyMCAxNiAyMFoiIGZpbGw9IiM2Qjc4OEMiLz4KPC9zdmc+');
+        }
+      }
+      
+      console.log(`Found ${futureSprintIssues.length} issues in future sprints`);
+      console.log(`Future sprints: ${upcomingSprints.map(s => s.name).join(', ')}`);
+    } catch (error) {
+      console.error('Error fetching future sprint issues:', error.message);
+    }
+
+    // 8. Build HTML content
+    const styles = `
+      <style>
+        .load-section {
+          margin-bottom: 40px;
+        }
+        .load-section h2 {
+          color: #172B4D;
+          margin-bottom: 20px;
+          border-bottom: 2px solid #DFE1E6;
+          padding-bottom: 10px;
+        }
+        .load-table {
+          width: 100%;
+          border-collapse: collapse;
+          background: white;
+          border-radius: 8px;
+          overflow: hidden;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .load-table th {
+          background: #DFE1E6;
+          padding: 12px 16px;
+          text-align: left;
+          font-weight: 600;
+          color: #172B4D;
+          border-bottom: 2px solid #C1C7D0;
+        }
+        .load-table td {
+          padding: 12px 16px;
+          border-bottom: 1px solid #DFE1E6;
+        }
+        .load-table tr:last-child td {
+          border-bottom: none;
+        }
+        .load-table tbody tr:nth-child(even) {
+          background: #FAFBFC;
+        }
+        .load-table tbody tr:nth-child(odd) {
+          background: white;
+        }
+        .load-table tr:hover {
+          background: #F4F5F7 !important;
+        }
+        .assignee-name {
+          font-weight: 600;
+          color: #172B4D;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .assignee-avatar {
+          width: 32px;
+          height: 32px;
+          border-radius: 4px;
+          flex-shrink: 0;
+        }
+        .count {
+          text-align: center;
+          font-weight: 500;
+        }
+        .count.zero {
+          color: #6B778C;
+        }
+        .total-row {
+          background: #F4F5F7;
+          font-weight: 600;
+        }
+        .total-row td {
+          border-top: 2px solid #DFE1E6;
+        }
+        .summary {
+          color: #6B778C;
+          margin-bottom: 30px;
+        }
+        .sprint-info {
+          background: #F4F5F7;
+          padding: 12px 16px;
+          border-radius: 4px;
+          margin-bottom: 20px;
+          color: #172B4D;
+        }
+        .sprint-info strong {
+          color: #0052CC;
+        }
+      </style>
+    `;
+
+    // Build current sprint load table
+    let currentSprintHTML = '';
+    if (currentSprint) {
+      const startDate = currentSprint.startDate ? moment(currentSprint.startDate).format('MMM D, YYYY') : 'Not set';
+      const endDate = currentSprint.endDate ? moment(currentSprint.endDate).format('MMM D, YYYY') : 'Not set';
+      const sprintInfoHTML = `
+        <div class="sprint-info">
+          <strong>Current Sprint:</strong> ${currentSprint.name} 
+          ${currentSprint.startDate && currentSprint.endDate ? `(${startDate} - ${endDate})` : ''}
+        </div>
+      `;
+      
+      // Sort assignees with "Unassigned" at the end
+      const currentSprintAssigneesList = Array.from(currentSprintAssignees).sort((a, b) => {
+        if (a === 'Unassigned') return 1;
+        if (b === 'Unassigned') return -1;
+        return a.localeCompare(b);
+      });
+      
+      currentSprintHTML = `
+        <div class="load-section">
+          <h2>Current Sprint Load</h2>
+          ${sprintInfoHTML}
+          <p class="summary">Ticket count per team member by board column for the current sprint</p>
+          <table class="load-table">
+            <thead>
+              <tr>
+                <th>Team Member</th>
+                ${boardColumns.map(col => `<th>${col.name}</th>`).join('')}
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+
+      // Calculate totals per column for current sprint
+      const currentSprintColumnTotals = new Map();
+      boardColumns.forEach(col => currentSprintColumnTotals.set(col.name, 0));
+
+      currentSprintAssigneesList.forEach(assignee => {
+        const assigneeLoad = currentSprintLoadByAssignee.get(assignee) || new Map();
+        let rowTotal = 0;
+        
+        const cells = boardColumns.map(col => {
+          const count = assigneeLoad.get(col.name) || 0;
+          rowTotal += count;
+          currentSprintColumnTotals.set(col.name, currentSprintColumnTotals.get(col.name) + count);
+          return `<td class="count ${count === 0 ? 'zero' : ''}">${count}</td>`;
+        }).join('');
+        
+        // Get avatar URL for this assignee
+        const avatarUrl = assigneeAvatars.get(assignee);
+        const avatarHTML = avatarUrl ? `<img src="${avatarUrl}" alt="${assignee}" class="assignee-avatar">` : '';
+        
+        currentSprintHTML += `
+          <tr>
+            <td class="assignee-name">${avatarHTML}${assignee}</td>
+            ${cells}
+            <td class="count"><strong>${rowTotal}</strong></td>
+          </tr>
+        `;
+      });
+
+      // Add totals row for current sprint
+      const currentSprintGrandTotal = Array.from(currentSprintColumnTotals.values()).reduce((sum, val) => sum + val, 0);
+      currentSprintHTML += `
+        <tr class="total-row">
+          <td><strong>Total</strong></td>
+          ${boardColumns.map(col => `<td class="count"><strong>${currentSprintColumnTotals.get(col.name)}</strong></td>`).join('')}
+          <td class="count"><strong>${currentSprintGrandTotal}</strong></td>
+        </tr>
+      `;
+
+      currentSprintHTML += `
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    // Build upcoming sprints load table
+    let upcomingSprintsHTML = '';
+    if (upcomingSprints.length > 0) {
+      // Show all current sprint assignees, even if they have 0 tickets in upcoming sprints
+      // Sort with "Unassigned" at the end
+      const upcomingAssignees = Array.from(currentSprintAssignees).sort((a, b) => {
+        if (a === 'Unassigned') return 1;
+        if (b === 'Unassigned') return -1;
+        return a.localeCompare(b);
+      });
+      
+      upcomingSprintsHTML = `
+        <div class="load-section">
+          <h2>Upcoming Sprint Load</h2>
+          <p class="summary">Ticket count per team member for upcoming sprints (not yet started/active)</p>
+          <table class="load-table">
+            <thead>
+              <tr>
+                <th>Team Member</th>
+                ${upcomingSprints.map(sprint => `<th>${sprint.name}</th>`).join('')}
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+
+      // Calculate totals per sprint
+      const sprintTotals = new Map();
+      upcomingSprints.forEach(sprint => sprintTotals.set(sprint.name, 0));
+
+      upcomingAssignees.forEach(assignee => {
+        const assigneeUpcomingLoad = upcomingLoadByAssignee.get(assignee) || new Map();
+        let rowTotal = 0;
+        
+        const cells = upcomingSprints.map(sprint => {
+          const count = assigneeUpcomingLoad.get(sprint.name) || 0;
+          rowTotal += count;
+          sprintTotals.set(sprint.name, sprintTotals.get(sprint.name) + count);
+          return `<td class="count ${count === 0 ? 'zero' : ''}">${count}</td>`;
+        }).join('');
+        
+        // Get avatar URL for this assignee
+        const avatarUrl = assigneeAvatars.get(assignee);
+        const avatarHTML = avatarUrl ? `<img src="${avatarUrl}" alt="${assignee}" class="assignee-avatar">` : '';
+        
+        upcomingSprintsHTML += `
+          <tr>
+            <td class="assignee-name">${avatarHTML}${assignee}</td>
+            ${cells}
+            <td class="count"><strong>${rowTotal}</strong></td>
+          </tr>
+        `;
+      });
+
+      // Add totals row
+      const upcomingGrandTotal = Array.from(sprintTotals.values()).reduce((sum, val) => sum + val, 0);
+      upcomingSprintsHTML += `
+        <tr class="total-row">
+          <td><strong>Total</strong></td>
+          ${upcomingSprints.map(sprint => `<td class="count"><strong>${sprintTotals.get(sprint.name)}</strong></td>`).join('')}
+          <td class="count"><strong>${upcomingGrandTotal}</strong></td>
+        </tr>
+      `;
+
+      upcomingSprintsHTML += `
+            </tbody>
+          </table>
+        </div>
+      `;
+    } else {
+      upcomingSprintsHTML = `
+        <div class="load-section">
+          <h2>Upcoming Sprint Load</h2>
+          <p class="summary">No upcoming sprints found.</p>
+        </div>
+      `;
+    }
+
+    const content = `
+      <h1>Load Report</h1>
+      ${currentSprintHTML}
+      ${upcomingSprintsHTML}
+    `;
+
+    res.send(renderPage('Load Report', content, styles));
+  } catch (error) {
+    console.error('Error in /load route:', error);
+    res.status(error.response?.status || 500).send(renderPage('Load Report', `
+      <h1>Load Report</h1>
       <p>Error: ${error.message}${error.response ? ` (Status: ${error.response.status})` : ''}</p>
     `, ''));
   }

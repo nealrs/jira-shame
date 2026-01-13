@@ -10,4 +10,11 @@ services:
       - BOARD_ID=${JIRA_BOARD_ID}
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - GITHUB_ORG=${GITHUB_ORG}
+    volumes:
+      # Mount source code for hot reloading (exclude node_modules)
+      - ./server.js:/app/server.js
+      - ./templates:/app/templates
+      - ./public:/app/public
+      - ./img:/app/img
+    command: npm run dev
     restart: unless-stopped

@@ -7,7 +7,7 @@ WORKDIR /app
 # Copy package files first for caching
 COPY package*.json ./
 
-# Install dependencies
+# Install dependencies (including dev dependencies for nodemon)
 RUN npm install
 
 # Copy the source code
