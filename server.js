@@ -1545,32 +1545,43 @@ app.get('/progress', async (req, res) => {
           // Build all changes in order: Status, Assignee, Priority, Type
           const allChanges = [];
           
-          // Format status change - show start → end (overall change)
-          if (issue.hasStatusChange) {
+          // Format status changes - show ALL status transitions that happened during the period (newest first)
+          if (issue.statusTransitions.length > 0) {
+            // Sort transitions in reverse chronological order (newest first)
+            const sortedTransitions = [...issue.statusTransitions].sort((a, b) => b.date.valueOf() - a.date.valueOf());
+            sortedTransitions.forEach(transition => {
+              const dateStr = transition.date.format('MMM D, h:mm A');
+              allChanges.push(`<div class="change-item"><strong>Status:</strong> <span class="status-badge from">${transition.fromStatus}</span><span class="status-arrow">→</span><span class="status-badge to">${transition.toStatus}</span> <span style="color: #6B778C; font-size: 11px;">(${dateStr})</span></div>`);
+            });
+          } else if (issue.hasStatusChange) {
+            // Fallback: show overall change if no transitions tracked but status changed
             allChanges.push(`<div class="change-item"><strong>Status:</strong> <span class="status-badge from">${issue.startStatus}</span><span class="status-arrow">→</span><span class="status-badge to">${issue.endStatus}</span></div>`);
           }
           
-          // Format assignee changes - show ALL changes that happened during the period
+          // Format assignee changes - show ALL changes that happened during the period (newest first)
           if (issue.assigneeChanges.length > 0) {
-            issue.assigneeChanges.forEach(change => {
+            const sortedAssigneeChanges = [...issue.assigneeChanges].sort((a, b) => b.date.valueOf() - a.date.valueOf());
+            sortedAssigneeChanges.forEach(change => {
               allChanges.push(`<div class="change-item"><strong>Assignee:</strong> <span class="assignee-change">${change.from || 'Unassigned'}</span> → <span class="assignee-change">${change.to || 'Unassigned'}</span></div>`);
             });
           } else if (issue.initialAssignee !== issue.currentAssignee) {
             allChanges.push(`<div class="change-item"><strong>Assignee:</strong> <span class="assignee-change">${issue.initialAssignee}</span> → <span class="assignee-change">${issue.currentAssignee}</span></div>`);
           }
           
-          // Format priority changes - show ALL changes that happened during the period
+          // Format priority changes - show ALL changes that happened during the period (newest first)
           if (issue.priorityChanges.length > 0) {
-            issue.priorityChanges.forEach(change => {
+            const sortedPriorityChanges = [...issue.priorityChanges].sort((a, b) => b.date.valueOf() - a.date.valueOf());
+            sortedPriorityChanges.forEach(change => {
               allChanges.push(`<div class="change-item"><strong>Priority:</strong> <span class="priority-change">${change.from || 'Unset'}</span> → <span class="priority-change">${change.to || 'Unset'}</span></div>`);
             });
           } else if (issue.initialPriority !== issue.currentPriority) {
             allChanges.push(`<div class="change-item"><strong>Priority:</strong> <span class="priority-change">${issue.initialPriority}</span> → <span class="priority-change">${issue.currentPriority}</span></div>`);
           }
           
-          // Format issue type changes - show ALL changes that happened during the period
+          // Format issue type changes - show ALL changes that happened during the period (newest first)
           if (issue.issueTypeChanges.length > 0) {
-            issue.issueTypeChanges.forEach(change => {
+            const sortedTypeChanges = [...issue.issueTypeChanges].sort((a, b) => b.date.valueOf() - a.date.valueOf());
+            sortedTypeChanges.forEach(change => {
               allChanges.push(`<div class="change-item"><strong>Type:</strong> <span class="type-change">${change.from || 'Task'}</span> → <span class="type-change">${change.to || 'Task'}</span></div>`);
             });
           } else if (issue.hasIssueTypeChange) {
