@@ -41,6 +41,7 @@ function renderPage(title, content, additionalStyles = '') {
 // Helper function to generate period selector
 function generatePeriodSelector(currentPeriod, basePath) {
   const periods = [
+    { key: 'this-sprint', label: 'This Sprint' },
     { key: 'today', label: 'Today' },
     { key: 'yesterday', label: 'Yesterday' },
     { key: 'this-week', label: 'This Week' },
@@ -220,64 +221,42 @@ app.get('/', (req, res) => {
 
 app.get('/slow', async (req, res) => {
   try {
-    // 1. Get the current/latest sprint for the board using dates
-    let currentSprintId = null;
-    let currentSprintName = null;
+    // 1. Get project key from board configuration
+    let projectKey = null;
     try {
-      // Fetch all sprints (active, future, and closed) to find the current one by date
-      const sprintsResponse = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}/sprint`, {
-        params: {
-          maxResults: 50  // Get enough sprints to find the current one
-        }
-      });
-      
-      const allSprints = sprintsResponse.data.values || [];
-      
-      const now = moment();
-      let currentSprint = null;
-      
-      // Find the sprint that is currently active based on dates
-      // A sprint is "current" if now is between its startDate and endDate
-      for (const sprint of allSprints) {
-        if (sprint.startDate && sprint.endDate) {
-          const startDate = moment(sprint.startDate);
-          const endDate = moment(sprint.endDate);
-          
-          if (now.isBetween(startDate, endDate, null, '[]')) {
-            // This sprint is currently active
-            currentSprint = sprint;
-            break;
-          }
-        }
-      }
-      
-      // If no active sprint found by date, get the most recent sprint (by start date)
-      if (!currentSprint && allSprints.length > 0) {
-        // Sort by start date (most recent first)
-        const sprintsWithDates = allSprints
-          .filter(s => s.startDate)
-          .sort((a, b) => moment(b.startDate).valueOf() - moment(a.startDate).valueOf());
-        
-        if (sprintsWithDates.length > 0) {
-          currentSprint = sprintsWithDates[0];
-        }
-      }
-      
-      if (currentSprint) {
-        currentSprintId = currentSprint.id;
-        currentSprintName = currentSprint.name;
+      const boardResponse = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}`);
+      if (boardResponse.data && boardResponse.data.location) {
+        projectKey = boardResponse.data.location.projectKey;
       }
     } catch (error) {
-      // Continue without sprint filter if sprint fetch fails
+      console.error('Error fetching board configuration:', error.message);
+    }
+
+    // If we couldn't get project key from board, try to get it from a sample issue
+    if (!projectKey) {
+      try {
+        const sampleIssueResponse = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}/issue`, {
+          params: {
+            fields: 'key',
+            maxResults: 1
+          }
+        });
+        if (sampleIssueResponse.data.issues && sampleIssueResponse.data.issues.length > 0) {
+          const issueKey = sampleIssueResponse.data.issues[0].key;
+          projectKey = issueKey.split('-')[0]; // Extract project key from issue key (e.g., "ENG-123" -> "ENG")
+        }
+      } catch (error) {
+        console.error('Error getting project key from sample issue:', error.message);
+      }
     }
     
-    // 2. Construct JQL for multiple statuses
+    // 2. Construct JQL for multiple statuses with current sprint filter
     const statusString = TARGET_STATUSES.map(s => `'${s}'`).join(',');
     
-    // Build JQL query with sprint filter if we have a sprint
+    // Build JQL query with current sprint filter using openSprints() JQL function
     let jqlQuery = `status in (${statusString})`;
-    if (currentSprintId) {
-      jqlQuery += ` AND sprint = ${currentSprintId}`;
+    if (projectKey) {
+      jqlQuery += ` AND project = "${projectKey}" AND sprint in openSprints()`;
     }
     
     // 3. Fetch Issues from Board
@@ -518,17 +497,24 @@ app.get('/slow', async (req, res) => {
     // 5. Calculate sprint duration (in days) for badge styling
     // Try to get sprint duration from current sprint, otherwise default to 14 days
     let sprintDurationDays = 14; // Default to 2 weeks
-    if (currentSprintId && currentSprintName) {
-      try {
-        const sprintDetails = await jiraClient.get(`/rest/agile/1.0/sprint/${currentSprintId}`);
-        if (sprintDetails.data.startDate && sprintDetails.data.endDate) {
-          const start = moment(sprintDetails.data.startDate);
-          const end = moment(sprintDetails.data.endDate);
+    try {
+      // Fetch current sprint from board to get duration
+      const sprintsResponse = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}/sprint`, {
+        params: {
+          state: 'active',
+          maxResults: 1
+        }
+      });
+      if (sprintsResponse.data.values && sprintsResponse.data.values.length > 0) {
+        const currentSprint = sprintsResponse.data.values[0];
+        if (currentSprint.startDate && currentSprint.endDate) {
+          const start = moment(currentSprint.startDate);
+          const end = moment(currentSprint.endDate);
           sprintDurationDays = end.diff(start, 'days');
         }
-      } catch (error) {
-        // Use default 14 days if sprint details can't be fetched
       }
+    } catch (error) {
+      // Use default 14 days if sprint details can't be fetched
     }
 
     // Calculate badge thresholds and add badge class to each issue
@@ -734,13 +720,50 @@ app.get('/slow', async (req, res) => {
 
 app.get('/done', async (req, res) => {
   try {
-    const period = req.query.period || 'this-week'; // today, yesterday, this-week, last-7-days, this-month, last-month
+    const period = req.query.period || 'this-week'; // today, yesterday, this-week, last-7-days, this-month, last-month, this-sprint
+    
+    // Get project key for sprint filtering
+    let projectKey = null;
+    try {
+      const boardResponse = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}`);
+      if (boardResponse.data && boardResponse.data.location) {
+        projectKey = boardResponse.data.location.projectKey;
+      }
+    } catch (error) {
+      console.error('Error fetching board configuration:', error.message);
+    }
+
+    if (!projectKey) {
+      try {
+        const sampleIssueResponse = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}/issue`, {
+          params: {
+            fields: 'key',
+            maxResults: 1
+          }
+        });
+        if (sampleIssueResponse.data.issues && sampleIssueResponse.data.issues.length > 0) {
+          const issueKey = sampleIssueResponse.data.issues[0].key;
+          projectKey = issueKey.split('-')[0];
+        }
+      } catch (error) {
+        console.error('Error getting project key from sample issue:', error.message);
+      }
+    }
     
     // Calculate date ranges based on period
     let startDate, endDate, periodLabel;
+    let useSprintFilter = false;
     const now = moment();
     
     switch (period) {
+      case 'this-sprint':
+        // For "this sprint", we'll use sprint filter instead of date range
+        useSprintFilter = true;
+        periodLabel = 'This Sprint';
+        // Still set dates to a wide range for the resolutiondate filter
+        startDate = moment().subtract(1, 'year').startOf('day');
+        endDate = moment().endOf('day');
+        break;
       case 'today':
         startDate = moment().startOf('day');
         endDate = moment().endOf('day');
@@ -781,9 +804,15 @@ app.get('/done', async (req, res) => {
     // We'll query for tickets resolved in a slightly wider range to catch any edge cases
     // Both "Done" and "Won't Do" are considered completed states
     // We'll filter more precisely after getting the actual completion date from changelog
+    // Exclude backlog items (only show tickets that are in sprints - closed, open, or future)
     const startDateStr = startDate.clone().subtract(1, 'day').format('YYYY-MM-DD');
     const endDateStr = endDate.clone().add(1, 'day').format('YYYY-MM-DD');
-    const jqlQuery = `status in (Done, "Won't Do") AND resolutiondate >= "${startDateStr}" AND resolutiondate <= "${endDateStr}"`;
+    let jqlQuery = `status in (Done, "Won't Do") AND resolutiondate >= "${startDateStr}" AND resolutiondate <= "${endDateStr}" AND sprint IS NOT EMPTY`;
+    
+    // Add sprint filter for "this sprint" period
+    if (useSprintFilter && projectKey) {
+      jqlQuery += ` AND project = "${projectKey}" AND sprint in openSprints()`;
+    }
     
     // Fetch completed issues from board
     let issueKeys = [];
@@ -1157,11 +1186,40 @@ app.get('/done', async (req, res) => {
 
 app.get('/progress', async (req, res) => {
   try {
-    const period = req.query.period || 'last-7-days'; // today, yesterday, this-week, last-7-days, this-month, last-month
+    const period = req.query.period || 'last-7-days'; // today, yesterday, this-week, last-7-days, this-month, last-month, this-sprint
     const days = req.query.days ? parseInt(req.query.days) : null; // Optional: custom number of days
+    
+    // Get project key for sprint filtering
+    let projectKey = null;
+    try {
+      const boardResponse = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}`);
+      if (boardResponse.data && boardResponse.data.location) {
+        projectKey = boardResponse.data.location.projectKey;
+      }
+    } catch (error) {
+      console.error('Error fetching board configuration:', error.message);
+    }
+
+    if (!projectKey) {
+      try {
+        const sampleIssueResponse = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}/issue`, {
+          params: {
+            fields: 'key',
+            maxResults: 1
+          }
+        });
+        if (sampleIssueResponse.data.issues && sampleIssueResponse.data.issues.length > 0) {
+          const issueKey = sampleIssueResponse.data.issues[0].key;
+          projectKey = issueKey.split('-')[0];
+        }
+      } catch (error) {
+        console.error('Error getting project key from sample issue:', error.message);
+      }
+    }
     
     // Calculate date ranges based on period
     let startDate, endDate, periodLabel;
+    let useSprintFilter = false;
     const now = moment();
     
     if (days && days > 0) {
@@ -1170,6 +1228,14 @@ app.get('/progress', async (req, res) => {
       periodLabel = `Last ${days} Days`;
     } else {
       switch (period) {
+        case 'this-sprint':
+          // For "this sprint", we'll use sprint filter instead of date range
+          useSprintFilter = true;
+          periodLabel = 'This Sprint';
+          // Still set dates to a wide range for the updated filter
+          startDate = moment().subtract(1, 'year').startOf('day');
+          endDate = moment().endOf('day');
+          break;
         case 'today':
           startDate = moment().startOf('day');
           endDate = moment().endOf('day');
@@ -1212,7 +1278,12 @@ app.get('/progress', async (req, res) => {
     // Jira's updated field is datetime, so we need to ensure we get the full day
     const startDateStr = startDate.format('YYYY-MM-DD');
     const endDateNextDay = endDate.clone().add(1, 'day').format('YYYY-MM-DD');
-    const jqlQuery = `updated >= "${startDateStr}" AND updated < "${endDateNextDay}"`;
+    let jqlQuery = `updated >= "${startDateStr}" AND updated < "${endDateNextDay}"`;
+    
+    // Add sprint filter for "this sprint" period
+    if (useSprintFilter && projectKey) {
+      jqlQuery += ` AND project = "${projectKey}" AND sprint in openSprints()`;
+    }
     
     // Fetch issues from board
     let issueKeys = [];
@@ -1541,57 +1612,45 @@ app.get('/progress', async (req, res) => {
 
 app.get('/backlog', async (req, res) => {
   try {
-    // 1. Get all sprints to identify current/active and upcoming sprints
-    let currentSprintIds = new Set();
-    let upcomingSprintIds = new Set();
-    const sprintMap = new Map(); // Map sprint ID to sprint object
-    
+    // 1. Get project key from board configuration
+    let projectKey = null;
     try {
-      const sprintsResponse = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}/sprint`, {
-        params: {
-          maxResults: 50
-        }
-      });
-      
-      const allSprints = sprintsResponse.data.values || [];
-      const now = moment();
-      
-      // Find current/active sprints and upcoming sprints
-      for (const sprint of allSprints) {
-        sprintMap.set(sprint.id, sprint);
-        
-        if (sprint.startDate && sprint.endDate) {
-          const startDate = moment(sprint.startDate);
-          const endDate = moment(sprint.endDate);
-          
-          // Current/active sprint: now is between start and end
-          if (now.isBetween(startDate, endDate, null, '[]')) {
-            currentSprintIds.add(sprint.id);
-          }
-          // Upcoming sprint: start date is in the future
-          else if (startDate.isAfter(now)) {
-            upcomingSprintIds.add(sprint.id);
-          }
-        }
+      const boardResponse = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}`);
+      if (boardResponse.data && boardResponse.data.location) {
+        projectKey = boardResponse.data.location.projectKey;
       }
-      
-      // If no active sprint found by date, get the most recent sprint
-      if (currentSprintIds.size === 0 && allSprints.length > 0) {
-        const sprintsWithDates = allSprints
-          .filter(s => s.startDate)
-          .sort((a, b) => moment(b.startDate).valueOf() - moment(a.startDate).valueOf());
-        
-        if (sprintsWithDates.length > 0) {
-          currentSprintIds.add(sprintsWithDates[0].id);
-        }
-      }
-      
     } catch (error) {
-      console.error('Error fetching sprints:', error.message);
+      console.error('Error fetching board configuration:', error.message);
+    }
+
+    // If we couldn't get project key from board, try to get it from a sample issue
+    if (!projectKey) {
+      try {
+        const sampleIssueResponse = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}/issue`, {
+          params: {
+            fields: 'key',
+            maxResults: 1
+          }
+        });
+        if (sampleIssueResponse.data.issues && sampleIssueResponse.data.issues.length > 0) {
+          const issueKey = sampleIssueResponse.data.issues[0].key;
+          projectKey = issueKey.split('-')[0]; // Extract project key from issue key (e.g., "ENG-123" -> "ENG")
+        }
+      } catch (error) {
+        console.error('Error getting project key from sample issue:', error.message);
+      }
     }
     
-    // 2. Query for ALL open issues (we'll filter by sprint in code)
-    const jqlQuery = `status not in (Done, "Won't Do") ORDER BY created ASC`;
+    // 2. Query for open issues NOT in current or future sprints using JQL sprint functions
+    // Include issues with no sprint (backlog items) OR issues in closed sprints
+    let jqlQuery = `status not in (Done, "Won't Do")`;
+    if (projectKey) {
+      jqlQuery += ` AND project = "${projectKey}" AND (sprint IS EMPTY OR (sprint NOT in openSprints() AND sprint NOT in futureSprints()))`;
+    } else {
+      // If no project key, still include issues with no sprint
+      jqlQuery += ` AND (sprint IS EMPTY OR (sprint NOT in openSprints() AND sprint NOT in futureSprints()))`;
+    }
+    jqlQuery += ` ORDER BY created ASC`;
     
     // Fetch all open issues from board with pagination
     let issueKeys = [];
@@ -1677,33 +1736,9 @@ app.get('/backlog', async (req, res) => {
     
     console.log(`Fetched ${allIssues.length} total open issues (out of ${issueKeys.length} keys)`);
     
-    // 4. Get all issues in current AND upcoming sprints using board API (more reliable)
-    const issuesInCurrentOrUpcomingSprints = new Set();
-    const allSprintIdsToExclude = new Set([...currentSprintIds, ...upcomingSprintIds]);
-    
-    if (allSprintIdsToExclude.size > 0) {
-      for (const sprintId of allSprintIdsToExclude) {
-        try {
-          const sprintIssuesResponse = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}/issue`, {
-            params: {
-              jql: `sprint = ${sprintId}`,
-              fields: 'key',
-              maxResults: 500
-            }
-          });
-          const sprintIssueKeys = (sprintIssuesResponse.data.issues || []).map(i => i.key);
-          sprintIssueKeys.forEach(key => issuesInCurrentOrUpcomingSprints.add(key));
-          const sprintName = sprintMap.get(sprintId)?.name || sprintId;
-        } catch (error) {
-          console.error(`Error fetching issues in sprint ${sprintId}:`, error.message);
-        }
-      }
-    }
-    
-    // 5. Filter out epics, subtasks, and issues in current/upcoming sprints
+    // 4. Filter out epics and subtasks
     let epicsExcluded = 0;
     let subtasksExcluded = 0;
-    let inSprintExcluded = 0;
     
     const filteredIssues = allIssues.filter(issue => {
       // Filter out epics and subtasks
@@ -1717,23 +1752,15 @@ app.get('/backlog', async (req, res) => {
         return false;
       }
       
-      // Filter out issues in current or upcoming sprints (using board API check)
-      // Note: Issues in PAST sprints are kept (they're now in backlog)
-      if (issuesInCurrentOrUpcomingSprints.has(issue.key)) {
-        inSprintExcluded++;
-        return false;
-      }
-      
       return true;
     });
     
     
-    // 6. For each issue, find the most recent sprint it's in (for display purposes)
+    // 5. For each issue, find the most recent sprint it's in (for display purposes)
     const issuesWithSprints = await Promise.all(
       filteredIssues.map(async (issue) => {
         let latestSprintName = null;
         let latestSprintId = null;
-        let isInUpcomingSprint = false;
         
         if (issue.fields.sprint) {
           let sprintIds = [];
@@ -1757,21 +1784,10 @@ app.get('/backlog', async (req, res) => {
             sprintIds = [Number(issue.fields.sprint)];
           }
           
-          // Check if any sprint ID is in upcoming sprints
-          for (const sprintId of sprintIds) {
-            if (upcomingSprintIds.has(sprintId)) {
-              isInUpcomingSprint = true;
-            }
-          }
-          
           // Fetch sprint details to find the most recent one (for display)
           if (sprintIds.length > 0) {
             const sprintDetails = await Promise.all(
               sprintIds.map(async (sprintId) => {
-                // Use cached sprint if available, otherwise fetch
-                if (sprintMap.has(sprintId)) {
-                  return sprintMap.get(sprintId);
-                }
                 try {
                   const sprintResponse = await jiraClient.get(`/rest/agile/1.0/sprint/${sprintId}`);
                   return sprintResponse.data;
@@ -1799,8 +1815,7 @@ app.get('/backlog', async (req, res) => {
         return {
           ...issue,
           latestSprintName: latestSprintName,
-          latestSprintId: latestSprintId,
-          isInUpcomingSprint: isInUpcomingSprint
+          latestSprintId: latestSprintId
         };
       })
     );
