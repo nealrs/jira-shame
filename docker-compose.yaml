@@ -10,6 +10,8 @@ services:
       - BOARD_ID=${JIRA_BOARD_ID}
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - GITHUB_ORG=${GITHUB_ORG}
+      - NODE_ENV=${NODE_ENV}
+      - DEBUG=${DEBUG}
     volumes:
       # Mount source code for hot reloading (exclude node_modules)
       - ./server.js:/app/server.js

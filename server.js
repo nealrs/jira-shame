@@ -90,6 +90,25 @@ const githubClient = axios.create({
   }
 });
 
+const DEBUG = process.env.DEBUG ? process.env.DEBUG === 'true' : process.env.NODE_ENV !== 'production';
+function debugLog(...args) {
+  if (DEBUG) {
+    console.log(...args);
+  }
+}
+
+function debugWarn(...args) {
+  if (DEBUG) {
+    console.warn(...args);
+  }
+}
+
+function debugError(...args) {
+  if (DEBUG) {
+    console.error(...args);
+  }
+}
+
 app.get('/', (req, res) => {
   const styles = `
     <style>
@@ -229,7 +248,7 @@ app.get('/slow', async (req, res) => {
         projectKey = boardResponse.data.location.projectKey;
       }
     } catch (error) {
-      console.error('Error fetching board configuration:', error.message);
+      debugError('Error fetching board configuration:', error.message);
     }
 
     // If we couldn't get project key from board, try to get it from a sample issue
@@ -246,7 +265,7 @@ app.get('/slow', async (req, res) => {
           projectKey = issueKey.split('-')[0]; // Extract project key from issue key (e.g., "ENG-123" -> "ENG")
         }
       } catch (error) {
-        console.error('Error getting project key from sample issue:', error.message);
+        debugError('Error getting project key from sample issue:', error.message);
       }
     }
     
@@ -269,7 +288,7 @@ app.get('/slow', async (req, res) => {
     });
 
     const issues = boardResponse.data.issues || [];
-    console.log(`Found ${issues.length} issues from board query`);
+    debugLog(`Found ${issues.length} issues from board query`);
 
     if (issues.length === 0) {
       const content = '<h1>SLOW MOTION</h1><p style="text-align: center; color: #6B778C; margin-top: 40px;">No stagnant tickets found! 🎉</p>';
@@ -492,7 +511,7 @@ app.get('/slow', async (req, res) => {
     })
     .filter(issue => issue.days >= 7); // Only show issues that have been in status for at least 7 days
 
-    console.log(`After filtering out issues < 7 days: ${processedIssues.length} issues remaining`);
+    debugLog(`After filtering out issues < 7 days: ${processedIssues.length} issues remaining`);
 
     // 5. Calculate sprint duration (in days) for badge styling
     // Try to get sprint duration from current sprint, otherwise default to 14 days
@@ -713,7 +732,7 @@ app.get('/slow', async (req, res) => {
     res.send(renderPage('Stuck Tickets', content, styles));
 
   } catch (error) {
-    console.error(error);
+    debugError(error);
     res.status(500).send(`Error: ${error.message}`);
   }
 });
@@ -730,7 +749,7 @@ app.get('/done', async (req, res) => {
         projectKey = boardResponse.data.location.projectKey;
       }
     } catch (error) {
-      console.error('Error fetching board configuration:', error.message);
+      debugError('Error fetching board configuration:', error.message);
     }
 
     if (!projectKey) {
@@ -746,7 +765,7 @@ app.get('/done', async (req, res) => {
           projectKey = issueKey.split('-')[0];
         }
       } catch (error) {
-        console.error('Error getting project key from sample issue:', error.message);
+        debugError('Error getting project key from sample issue:', error.message);
       }
     }
     
@@ -826,7 +845,7 @@ app.get('/done', async (req, res) => {
       });
       issueKeys = (boardResponse.data.issues || []).map(i => i.key);
     } catch (error) {
-      console.error('Error fetching from board, trying direct search:', error.message);
+      debugError('Error fetching from board, trying direct search:', error.message);
       // Fallback: try direct search
       const searchResponse = await jiraClient.post(`/rest/api/3/search/jql`, {
         jql: jqlQuery,
@@ -836,7 +855,7 @@ app.get('/done', async (req, res) => {
       issueKeys = (searchResponse.data.issues || []).map(i => i.key);
     }
     
-    console.log(`Found ${issueKeys.length} completed issues for ${periodLabel}`);
+    debugLog(`Found ${issueKeys.length} completed issues for ${periodLabel}`);
     
     if (issueKeys.length === 0) {
       const content = `
@@ -856,7 +875,7 @@ app.get('/done', async (req, res) => {
     });
     
     const issues = searchResponse.data.issues || [];
-    console.log(`Found ${issues.length} completed issues for ${periodLabel}`);
+    debugLog(`Found ${issues.length} completed issues for ${periodLabel}`);
     
     if (issues.length === 0) {
       const content = `
@@ -1179,7 +1198,7 @@ app.get('/done', async (req, res) => {
     res.send(renderPage(`Completed Tickets - ${periodLabel}`, content, styles));
 
   } catch (error) {
-    console.error(error);
+    debugError(error);
     res.status(500).send(`Error: ${error.message}`);
   }
 });
@@ -1197,7 +1216,7 @@ app.get('/progress', async (req, res) => {
         projectKey = boardResponse.data.location.projectKey;
       }
     } catch (error) {
-      console.error('Error fetching board configuration:', error.message);
+      debugError('Error fetching board configuration:', error.message);
     }
 
     if (!projectKey) {
@@ -1213,7 +1232,7 @@ app.get('/progress', async (req, res) => {
           projectKey = issueKey.split('-')[0];
         }
       } catch (error) {
-        console.error('Error getting project key from sample issue:', error.message);
+        debugError('Error getting project key from sample issue:', error.message);
       }
     }
     
@@ -1297,7 +1316,7 @@ app.get('/progress', async (req, res) => {
       });
       issueKeys = (boardResponse.data.issues || []).map(i => i.key);
     } catch (error) {
-      console.error('Error fetching from board, trying direct search:', error.message);
+      debugError('Error fetching from board, trying direct search:', error.message);
       // Fallback: try direct search
       const searchResponse = await jiraClient.post(`/rest/api/3/search/jql`, {
         jql: jqlQuery,
@@ -1307,7 +1326,7 @@ app.get('/progress', async (req, res) => {
       issueKeys = (searchResponse.data.issues || []).map(i => i.key);
     }
     
-    console.log(`Found ${issueKeys.length} updated issues for ${periodLabel}`);
+    debugLog(`Found ${issueKeys.length} updated issues for ${periodLabel}`);
     
     if (issueKeys.length === 0) {
       const content = `
@@ -1326,7 +1345,7 @@ app.get('/progress', async (req, res) => {
     });
     
     const issues = searchResponse.data.issues || [];
-    console.log(`Fetched ${issues.length} issues for ${periodLabel}`);
+    debugLog(`Fetched ${issues.length} issues for ${periodLabel}`);
     
     // Fetch changelog for each issue to analyze transitions
     const issuesWithChangelog = await Promise.all(
@@ -1504,7 +1523,7 @@ app.get('/progress', async (req, res) => {
         return bDate.valueOf() - aDate.valueOf();
       });
     
-    console.log(`Found ${processedIssues.length} issues with status changes for ${periodLabel}`);
+    debugLog(`Found ${processedIssues.length} issues with status changes for ${periodLabel}`);
     
     // Generate HTML
     const styles = `
@@ -1616,7 +1635,7 @@ app.get('/progress', async (req, res) => {
     res.send(renderPage(`Progress Report - ${periodLabel}`, content, styles));
 
   } catch (error) {
-    console.error(error);
+    debugError(error);
     res.status(500).send(`Error: ${error.message}`);
   }
 });
@@ -1631,7 +1650,7 @@ app.get('/backlog', async (req, res) => {
         projectKey = boardResponse.data.location.projectKey;
       }
     } catch (error) {
-      console.error('Error fetching board configuration:', error.message);
+      debugError('Error fetching board configuration:', error.message);
     }
 
     // If we couldn't get project key from board, try to get it from a sample issue
@@ -1648,7 +1667,7 @@ app.get('/backlog', async (req, res) => {
           projectKey = issueKey.split('-')[0]; // Extract project key from issue key (e.g., "ENG-123" -> "ENG")
         }
       } catch (error) {
-        console.error('Error getting project key from sample issue:', error.message);
+        debugError('Error getting project key from sample issue:', error.message);
       }
     }
     
@@ -1689,7 +1708,7 @@ app.get('/backlog', async (req, res) => {
         
       }
     } catch (error) {
-      console.error('Error fetching from board, trying direct search:', error.message);
+      debugError('Error fetching from board, trying direct search:', error.message);
       // Fallback: try direct search with pagination
       let startAt = 0;
       const maxResults = 100;
@@ -1713,7 +1732,7 @@ app.get('/backlog', async (req, res) => {
       }
     }
     
-    console.log(`Found ${issueKeys.length} total open issues`);
+    debugLog(`Found ${issueKeys.length} total open issues`);
     
     if (issueKeys.length === 0) {
       const content = `
@@ -1740,12 +1759,12 @@ app.get('/backlog', async (req, res) => {
         const batchIssues = searchResponse.data.issues || [];
         allIssues = allIssues.concat(batchIssues);
       } catch (error) {
-        console.error(`Error fetching batch ${Math.floor(i/batchSize) + 1}:`, error.message);
+        debugError(`Error fetching batch ${Math.floor(i/batchSize) + 1}:`, error.message);
         // Continue with other batches even if one fails
       }
     }
     
-    console.log(`Fetched ${allIssues.length} total open issues (out of ${issueKeys.length} keys)`);
+    debugLog(`Fetched ${allIssues.length} total open issues (out of ${issueKeys.length} keys)`);
     
     // 4. Filter out epics and subtasks
     let epicsExcluded = 0;
@@ -2068,10 +2087,10 @@ app.get('/backlog', async (req, res) => {
     res.send(renderPage('Backlog Report', content, styles));
 
   } catch (error) {
-    console.error('Error in /backlog route:', error);
+    debugError('Error in /backlog route:', error);
     if (error.response) {
-      console.error('Response status:', error.response.status);
-      console.error('Response data:', JSON.stringify(error.response.data, null, 2));
+      debugError('Response status:', error.response.status);
+      debugError('Response data:', JSON.stringify(error.response.data, null, 2));
     }
     res.status(error.response?.status || 500).send(`Error: ${error.message}${error.response ? ` (Status: ${error.response.status})` : ''}`);
   }
@@ -2079,7 +2098,12 @@ app.get('/backlog', async (req, res) => {
 
 app.get('/pr', async (req, res) => {
   try {
+    debugLog(`[pr] Starting PR report fetch for org: ${GITHUB_ORG || 'missing'}`);
     if (!GITHUB_TOKEN || !GITHUB_ORG) {
+      debugWarn('[pr] Missing GitHub configuration', {
+        hasToken: Boolean(GITHUB_TOKEN),
+        hasOrg: Boolean(GITHUB_ORG)
+      });
       const styles = `
         <style>
           .error-message {
@@ -2149,6 +2173,7 @@ app.get('/pr', async (req, res) => {
     let allRepos = [];
     let page = 1;
     let hasMore = true;
+    let repoPages = 0;
     
     while (hasMore) {
       try {
@@ -2160,6 +2185,10 @@ app.get('/pr', async (req, res) => {
             sort: 'updated'
           }
         });
+        repoPages += 1;
+        const remaining = reposResponse.headers?.['x-ratelimit-remaining'];
+        const reset = reposResponse.headers?.['x-ratelimit-reset'];
+        debugLog(`[pr] Repos page ${page}: ${reposResponse.data.length} repos (rate remaining: ${remaining || 'n/a'}, reset: ${reset || 'n/a'})`);
         
         if (reposResponse.data.length === 0) {
           hasMore = false;
@@ -2171,12 +2200,15 @@ app.get('/pr', async (req, res) => {
           }
         }
       } catch (error) {
-        console.error(`Error fetching repos page ${page}:`, error.message);
+        debugError(`[pr] Error fetching repos page ${page}:`, error.message, {
+          status: error.response?.status,
+          data: error.response?.data
+        });
         hasMore = false;
       }
     }
 
-    console.log(`Found ${allRepos.length} repositories in org ${GITHUB_ORG}`);
+    debugLog(`[pr] Found ${allRepos.length} repositories in org ${GITHUB_ORG} across ${repoPages} page(s)`);
 
     // Fetch all open PRs from all repos
     const allPRs = [];
@@ -2185,6 +2217,7 @@ app.get('/pr', async (req, res) => {
       try {
         let prPage = 1;
         let hasMorePRs = true;
+        let repoPRCount = 0;
         
         while (hasMorePRs) {
           const prsResponse = await githubClient.get(`/repos/${repo.full_name}/pulls`, {
@@ -2196,18 +2229,26 @@ app.get('/pr', async (req, res) => {
               direction: 'desc'
             }
           });
+          const remaining = prsResponse.headers?.['x-ratelimit-remaining'];
+          const reset = prsResponse.headers?.['x-ratelimit-reset'];
+          debugLog(`[pr] ${repo.full_name} PR page ${prPage}: ${prsResponse.data.length} PRs (rate remaining: ${remaining || 'n/a'}, reset: ${reset || 'n/a'})`);
           
           if (prsResponse.data.length === 0) {
             hasMorePRs = false;
           } else {
             for (const pr of prsResponse.data) {
+              repoPRCount += 1;
               // Get reviews for this PR
               let reviews = [];
               try {
                 const reviewsResponse = await githubClient.get(`/repos/${repo.full_name}/pulls/${pr.number}/reviews`);
                 reviews = reviewsResponse.data;
+                debugLog(`[pr] ${repo.full_name}#${pr.number} reviews: ${reviews.length}`);
               } catch (error) {
-                console.error(`Error fetching reviews for ${repo.full_name}#${pr.number}:`, error.message);
+                debugError(`[pr] Error fetching reviews for ${repo.full_name}#${pr.number}:`, error.message, {
+                  status: error.response?.status,
+                  data: error.response?.data
+                });
               }
               
               // Get review requests
@@ -2218,8 +2259,12 @@ app.get('/pr', async (req, res) => {
                   ...(reviewRequestsResponse.data.users || []),
                   ...(reviewRequestsResponse.data.teams || [])
                 ];
+                debugLog(`[pr] ${repo.full_name}#${pr.number} requested reviewers: ${reviewRequests.length}`);
               } catch (error) {
-                console.error(`Error fetching review requests for ${repo.full_name}#${pr.number}:`, error.message);
+                debugError(`[pr] Error fetching review requests for ${repo.full_name}#${pr.number}:`, error.message, {
+                  status: error.response?.status,
+                  data: error.response?.data
+                });
               }
               
               // Extract ticket number from PR title or branch name
@@ -2278,13 +2323,18 @@ app.get('/pr', async (req, res) => {
             }
           }
         }
+        debugLog(`[pr] ${repo.full_name}: total open PRs collected: ${repoPRCount}`);
       } catch (error) {
-        console.error(`Error fetching PRs from ${repo.full_name}:`, error.message);
+        debugError(`[pr] Error fetching PRs from ${repo.full_name}:`, error.message, {
+          status: error.response?.status,
+          data: error.response?.data
+        });
       }
     }
 
     // Sort by updated date (most recent first)
     allPRs.sort((a, b) => b.updatedAt.valueOf() - a.updatedAt.valueOf());
+    debugLog(`[pr] Total open PRs collected: ${allPRs.length}`);
 
     const styles = `
       <style>
@@ -2468,10 +2518,10 @@ app.get('/pr', async (req, res) => {
     res.send(renderPage('Pull Requests', content, styles));
 
   } catch (error) {
-    console.error('Error in /pr route:', error);
+    debugError('Error in /pr route:', error);
     if (error.response) {
-      console.error('Response status:', error.response.status);
-      console.error('Response data:', JSON.stringify(error.response.data, null, 2));
+      debugError('Response status:', error.response.status);
+      debugError('Response data:', JSON.stringify(error.response.data, null, 2));
     }
     res.status(error.response?.status || 500).send(renderPage('Pull Requests', `
       <h1>Pull Requests</h1>
@@ -2525,7 +2575,7 @@ app.get('/load', async (req, res) => {
       }
       
       // Log board columns for debugging
-      console.log('Board columns parsed:', boardColumns.map(col => `${col.name}: [${col.statuses.join(', ')}]`).join(' | '));
+      debugLog('Board columns parsed:', boardColumns.map(col => `${col.name}: [${col.statuses.join(', ')}]`).join(' | '));
       
       // Get project key from board location
       const boardResponse = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}`);
@@ -2533,7 +2583,7 @@ app.get('/load', async (req, res) => {
         projectKey = boardResponse.data.location.projectKey;
       }
     } catch (error) {
-      console.error('Error fetching board configuration:', error.message);
+      debugError('Error fetching board configuration:', error.message);
       // Fallback: use common statuses if config fetch fails
       boardColumns = [
         { name: 'To Do', statuses: ['To Do'] },
@@ -2557,7 +2607,7 @@ app.get('/load', async (req, res) => {
           projectKey = issueKey.split('-')[0]; // Extract project key from issue key (e.g., "ENG-123" -> "ENG")
         }
       } catch (error) {
-        console.error('Error getting project key from sample issue:', error.message);
+        debugError('Error getting project key from sample issue:', error.message);
       }
     }
 
@@ -2621,12 +2671,12 @@ app.get('/load', async (req, res) => {
         try {
           const sprintResponse = await jiraClient.get(`/rest/agile/1.0/sprint/${sprintId}`);
           currentSprint = sprintResponse.data;
-          console.log(`Current sprint detected: ${currentSprint.name} (ID: ${sprintId})`);
+          debugLog(`Current sprint detected: ${currentSprint.name} (ID: ${sprintId})`);
         } catch (error) {
-          console.error('Error fetching sprint details:', error.message);
+          debugError('Error fetching sprint details:', error.message);
         }
       } else {
-        console.log('No sprint IDs found in current sprint issues');
+        debugLog('No sprint IDs found in current sprint issues');
       }
       
       // Process current sprint issues - count ALL issues including unassigned
@@ -2707,26 +2757,26 @@ app.get('/load', async (req, res) => {
         }
       }
       
-      console.log(`Assigned issues: ${assignedCount}, Unassigned: ${unassignedCount}`);
-      console.log(`Found ${currentSprintIssues.length} issues in current sprint`);
-      console.log(`Status breakdown:`, Array.from(statusCounts.entries()).map(([status, count]) => `${status}: ${count}`).join(', '));
-      console.log(`Board columns:`, boardColumns.map(col => `${col.name}: [${col.statuses.join(', ')}]`).join(' | '));
+      debugLog(`Assigned issues: ${assignedCount}, Unassigned: ${unassignedCount}`);
+      debugLog(`Found ${currentSprintIssues.length} issues in current sprint`);
+      debugLog(`Status breakdown:`, Array.from(statusCounts.entries()).map(([status, count]) => `${status}: ${count}`).join(', '));
+      debugLog(`Board columns:`, boardColumns.map(col => `${col.name}: [${col.statuses.join(', ')}]`).join(' | '));
       
       if (unmappedStatuses.size > 0) {
-        console.log(`WARNING: Unmapped statuses found: ${Array.from(unmappedStatuses).join(', ')}`);
-        console.log(`These statuses are not matching any board column. Check status name casing/spelling.`);
+        debugLog(`WARNING: Unmapped statuses found: ${Array.from(unmappedStatuses).join(', ')}`);
+        debugLog(`These statuses are not matching any board column. Check status name casing/spelling.`);
       }
       
-      console.log(`Current sprint assignees: ${Array.from(currentSprintAssignees).join(', ')}`);
+      debugLog(`Current sprint assignees: ${Array.from(currentSprintAssignees).join(', ')}`);
       
       // Log detailed sample of what we're counting
       const sampleAssignees = Array.from(currentSprintLoadByAssignee.entries()).slice(0, 5);
       if (sampleAssignees.length > 0) {
-        console.log(`Load by assignee (first 5):`, sampleAssignees.map(([name, load]) => `${name}: ${JSON.stringify(Object.fromEntries(load))}`).join(', '));
+        debugLog(`Load by assignee (first 5):`, sampleAssignees.map(([name, load]) => `${name}: ${JSON.stringify(Object.fromEntries(load))}`).join(', '));
       } else {
-        console.log(`ERROR: No assignee load data found! This means no issues were counted.`);
+        debugLog(`ERROR: No assignee load data found! This means no issues were counted.`);
         // Log first few issues to debug
-        console.log(`Sample issues (first 5):`, currentSprintIssues.slice(0, 5).map(issue => ({
+        debugLog(`Sample issues (first 5):`, currentSprintIssues.slice(0, 5).map(issue => ({
           key: issue.key,
           status: issue.fields.status?.name,
           assignee: issue.fields.assignee?.displayName || 'UNASSIGNED',
@@ -2743,9 +2793,9 @@ app.get('/load', async (req, res) => {
           totalCounted += count;
         });
       });
-      console.log(`Total issues counted in load map: ${totalCounted} (should be ${currentSprintIssues.length})`);
+      debugLog(`Total issues counted in load map: ${totalCounted} (should be ${currentSprintIssues.length})`);
     } catch (error) {
-      console.error('Error fetching current sprint issues:', error.message);
+      debugError('Error fetching current sprint issues:', error.message);
       return res.status(500).send(renderPage('Load Report', `
         <h1>Sprint Load</h1>
         <p>Error fetching current sprint issues: ${error.message}</p>
@@ -2885,10 +2935,10 @@ app.get('/load', async (req, res) => {
         }
       }
       
-      console.log(`Found ${futureSprintIssues.length} issues in future sprints`);
-      console.log(`Future sprints: ${upcomingSprints.map(s => s.name).join(', ')}`);
+      debugLog(`Found ${futureSprintIssues.length} issues in future sprints`);
+      debugLog(`Future sprints: ${upcomingSprints.map(s => s.name).join(', ')}`);
     } catch (error) {
-      console.error('Error fetching future sprint issues:', error.message);
+      debugError('Error fetching future sprint issues:', error.message);
     }
 
     // 8. Build HTML content
@@ -3234,7 +3284,7 @@ app.get('/load', async (req, res) => {
 
     res.send(renderPage('Load Report', content, styles));
   } catch (error) {
-    console.error('Error in /load route:', error);
+    debugError('Error in /load route:', error);
     res.status(error.response?.status || 500).send(renderPage('Load Report', `
       <h1>Sprint Load</h1>
       <p>Error: ${error.message}${error.response ? ` (Status: ${error.response.status})` : ''}</p>
@@ -3243,5 +3293,5 @@ app.get('/load', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  debugLog(`Server running on http://localhost:${PORT}`);
 });
