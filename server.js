@@ -232,6 +232,16 @@ app.get('/', (req, res) => {
         </p>
         <a href="/load" class="route-link">View Load</a>
       </div>
+
+      <div class="route-card">
+        <div class="icon">🔀</div>
+        <h2>PULL REQUESTS</h2>
+        <p>
+          View open pull requests across your GitHub org, including review status. If GitHub env vars
+          aren’t configured, the page will show a helpful setup message.
+        </p>
+        <a href="/pr" class="route-link">View Pull Requests</a>
+      </div>
     </div>
   `;
   
@@ -2439,7 +2449,7 @@ app.get('/pr', async (req, res) => {
         }
         .pr {
           display: grid;
-          grid-template-columns: 100px 1fr 150px 150px 200px 1fr;
+          grid-template-columns: 220px 1fr 150px 200px 1fr;
           gap: 15px;
           padding: 15px 0;
           border-bottom: 1px solid #e0e0e0;
@@ -2449,13 +2459,35 @@ app.get('/pr', async (req, res) => {
         }
         .pr-header {
           display: grid;
-          grid-template-columns: 100px 1fr 150px 150px 200px 1fr;
+          grid-template-columns: 220px 1fr 150px 200px 1fr;
           gap: 15px;
           padding: 10px 0;
           border-bottom: 2px solid #172B4D;
           font-weight: bold;
           color: #172B4D;
           margin-bottom: 10px;
+        }
+        .pr-header .sortable {
+          cursor: pointer;
+          user-select: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .pr-header .sortable:hover {
+          color: #0052CC;
+        }
+        .pr-header .sort-indicator {
+          font-size: 11px;
+          color: #6B778C;
+        }
+        .pr-header .sort-asc .sort-indicator::after {
+          content: '▲';
+          color: #0052CC;
+        }
+        .pr-header .sort-desc .sort-indicator::after {
+          content: '▼';
+          color: #0052CC;
         }
         .pr-number {
           font-weight: bold;
@@ -2467,8 +2499,23 @@ app.get('/pr', async (req, res) => {
         .pr-number a:hover {
           text-decoration: underline;
         }
+        .pr-number .repo-link {
+          color: #6B778C;
+          text-decoration: none;
+          margin-left: 6px;
+          font-weight: 500;
+        }
+        .pr-number .repo-link:hover {
+          color: #0052CC;
+          text-decoration: underline;
+        }
         .pr-title {
           font-weight: 500;
+        }
+        .pr-repo {
+          font-size: 12px;
+          color: #6B778C;
+          word-break: break-word;
         }
         .pr-branch {
           font-family: monospace;
@@ -2546,6 +2593,56 @@ app.get('/pr', async (req, res) => {
           margin-right: 5px;
         }
       </style>
+      <script>
+        function sortPrColumn(sortKey, sortType, headerEl) {
+          const container = document.querySelector('.prs-container');
+          if (!container) return;
+          
+          const items = Array.from(container.querySelectorAll('.pr'));
+          const headers = document.querySelectorAll('.pr-header .sortable');
+          
+          headers.forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
+          
+          const isCurrentlyDesc = headerEl.classList.contains('sort-desc');
+          const isDesc = !isCurrentlyDesc; // toggle
+          headerEl.classList.add(isDesc ? 'sort-desc' : 'sort-asc');
+          
+          items.sort((a, b) => {
+            let aValue = a.dataset[sortKey] ?? '';
+            let bValue = b.dataset[sortKey] ?? '';
+            
+            if (sortType === 'number') {
+              aValue = parseFloat(aValue) || 0;
+              bValue = parseFloat(bValue) || 0;
+            } else {
+              aValue = aValue.toString().toLowerCase();
+              bValue = bValue.toString().toLowerCase();
+            }
+            
+            if (aValue < bValue) return isDesc ? 1 : -1;
+            if (aValue > bValue) return isDesc ? -1 : 1;
+            return 0;
+          });
+          
+          items.forEach(item => container.appendChild(item));
+        }
+        
+        function initPrSorting() {
+          document.querySelectorAll('.pr-header .sortable').forEach(header => {
+            header.addEventListener('click', () => {
+              const sortKey = header.getAttribute('data-sort-key');
+              const sortType = header.getAttribute('data-sort-type') || 'text';
+              sortPrColumn(sortKey, sortType, header);
+            });
+          });
+        }
+        
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', initPrSorting);
+        } else {
+          initPrSorting();
+        }
+      </script>
     `;
 
     const content = `
@@ -2554,13 +2651,13 @@ app.get('/pr', async (req, res) => {
       
       <div class="prs-list">
         <div class="pr-header">
-          <div>PR #</div>
-          <div>Title</div>
-          <div>Branch</div>
-          <div>Author</div>
-          <div>Dates</div>
-          <div>Reviewers</div>
+          <div class="sortable" data-sort-key="number" data-sort-type="number">PR, Repo <span class="sort-indicator"></span></div>
+          <div class="sortable" data-sort-key="title" data-sort-type="text">Title <span class="sort-indicator"></span></div>
+          <div class="sortable" data-sort-key="author" data-sort-type="text">Author <span class="sort-indicator"></span></div>
+          <div class="sortable" data-sort-key="updated" data-sort-type="number">Updated <span class="sort-indicator"></span></div>
+          <div class="sortable" data-sort-key="reviewerCount" data-sort-type="number">Reviewers <span class="sort-indicator"></span></div>
         </div>
+        <div class="prs-container">
         ${allPRs.length === 0 ? '<p>No open pull requests found.</p>' : allPRs.map(pr => {
           const reviewersHtml = Object.keys(pr.reviewerStatuses).length === 0 && !pr.isDraft
             ? '<span class="no-reviewers">⚠️ No reviewers assigned</span>'
@@ -2583,17 +2680,27 @@ app.get('/pr', async (req, res) => {
                 `;
               }).join('');
           
+          const repoDisplay = pr.repoFullName || pr.repo || '';
+          const repoUrl = pr.repoFullName ? `https://github.com/${pr.repoFullName}` : (pr.repo ? `https://github.com/${GITHUB_ORG}/${pr.repo}` : '');
+          const reviewerCount = Object.keys(pr.reviewerStatuses || {}).length;
+          
           return `
-            <div class="pr">
+            <div class="pr"
+              data-number="${pr.number}"
+              data-repo="${repoDisplay.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}"
+              data-title="${String(pr.title || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}"
+              data-author="${String(pr.author || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}"
+              data-updated="${pr.updatedAt.valueOf()}"
+              data-reviewer-count="${reviewerCount}">
               <div class="pr-number">
                 <a href="${pr.url}" target="_blank">#${pr.number}</a>
                 ${pr.isDraft ? '<span class="draft-badge">Draft</span>' : ''}
+                ${repoUrl ? `, <a class="repo-link" href="${repoUrl}" target="_blank" rel="noreferrer">${repoDisplay}</a>` : (repoDisplay ? `, <span class="pr-repo">${repoDisplay}</span>` : '')}
               </div>
               <div class="pr-title">
                 ${pr.ticketNumber ? `<span class="ticket-number">${pr.ticketNumber}</span>` : ''}
                 ${pr.title}
               </div>
-              <div class="pr-branch">${pr.branch}</div>
               <div class="pr-author">${pr.author}</div>
               <div class="pr-dates">
                 <div>Opened: ${pr.createdAt.format('MM/DD/YY')}</div>
@@ -2605,6 +2712,7 @@ app.get('/pr', async (req, res) => {
             </div>
           `;
         }).join('')}
+        </div>
       </div>
     `;
 
