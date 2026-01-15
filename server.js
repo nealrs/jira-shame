@@ -2532,6 +2532,14 @@ app.get('/pr', async (req, res) => {
           font-weight: 400;
           font-size: 13px;
         }
+        .pr-title a {
+          color: inherit;
+          text-decoration: none;
+        }
+        .pr-title a:hover {
+          color: #0052CC;
+          text-decoration: underline;
+        }
         .pr-repo {
           font-size: 12px;
           color: #6B778C;
@@ -2737,7 +2745,7 @@ app.get('/pr', async (req, res) => {
               </div>
               <div class="pr-title">
                 ${pr.ticketNumber ? `<span class="ticket-number">${pr.ticketNumber}</span>` : ''}
-                ${pr.title}
+                <a href="${pr.url}" target="_blank" rel="noreferrer">${pr.title}</a>
               </div>
               <div class="pr-author">
                 ${pr.authorAvatarUrl ? `<img class="gh-avatar" src="${pr.authorAvatarUrl}" alt="${pr.author}"/>` : ''}
