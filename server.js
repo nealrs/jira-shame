@@ -112,105 +112,105 @@ function debugError(...args) {
 app.get('/', (req, res) => {
   const styles = `
     <style>
-      .subtitle {
-        text-align: center;
-        color: #6B778C;
-        font-size: 18px;
-        margin-bottom: 60px;
-      }
-      .routes {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-        gap: 30px;
-        margin-top: 40px;
-      }
-      .route-card {
-        background: white;
-        border-radius: 8px;
-        padding: 30px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        transition: transform 0.2s, box-shadow 0.2s;
-      }
-      .route-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      }
-      .route-card h2 {
-        margin-top: 0;
-        margin-bottom: 15px;
-        color: #172B4D;
-        font-size: 24px;
-      }
-      .route-card p {
-        color: #6B778C;
-        line-height: 1.6;
-        margin-bottom: 20px;
-      }
-      .route-link {
-        display: inline-block;
-        padding: 12px 24px;
-        background: #0052CC;
-        color: white;
-        text-decoration: none;
-        border-radius: 4px;
-        font-weight: 500;
-        transition: background 0.2s;
-      }
-      .route-link:hover {
-        background: #0065FF;
-      }
-      .route-link.slow {
-        background: #DE350B;
-      }
-      .route-link.slow:hover {
-        background: #FF5630;
-      }
-      .icon {
-        font-size: 32px;
-        margin-bottom: 15px;
-      }
-    </style>
+        .subtitle {
+          text-align: center;
+          color: #6B778C;
+          font-size: 18px;
+          margin-bottom: 60px;
+        }
+        .routes {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+          gap: 30px;
+          margin-top: 40px;
+        }
+        .route-card {
+          background: white;
+          border-radius: 8px;
+          padding: 30px;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .route-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .route-card h2 {
+          margin-top: 0;
+          margin-bottom: 15px;
+          color: #172B4D;
+          font-size: 24px;
+        }
+        .route-card p {
+          color: #6B778C;
+          line-height: 1.6;
+          margin-bottom: 20px;
+        }
+        .route-link {
+          display: inline-block;
+          padding: 12px 24px;
+          background: #0052CC;
+          color: white;
+          text-decoration: none;
+          border-radius: 4px;
+          font-weight: 500;
+          transition: background 0.2s;
+        }
+        .route-link:hover {
+          background: #0065FF;
+        }
+        .route-link.slow {
+          background: #DE350B;
+        }
+        .route-link.slow:hover {
+          background: #FF5630;
+        }
+        .icon {
+          font-size: 32px;
+          margin-bottom: 15px;
+        }
+      </style>
   `;
   
   const content = `
-    <h1>The Blame Game</h1>
-    <p class="subtitle"><em>It was the best of times. It was the worst of times.</em></p>
-    
-    <div class="routes">
-      <div class="route-card">
-        <div class="icon">🐌</div>
-        <h2>SLOW MOTION</h2>
-        <p>
-          View tickets that have been stuck in the same status for 7+ days. 
-          Filter by assignee to see who's responsible for stagnant work. 
-          Tickets are grouped by status (To Do, Ready for Development, In Progress, In Review) 
-          and color-coded based on how long they've been stuck.
-        </p>
-        <a href="/slow" class="route-link slow">View Stagnant Tickets</a>
-      </div>
-      
-      <div class="route-card">
-        <div class="icon">✅</div>
-        <h2>COMPLETED TICKETS</h2>
-        <p>
-          See all tickets that were completed (Done or Won't Do) in a selected time period. 
-          View completion times, assignees, and reporters. Filter by today, yesterday, 
-          this week, this month, or last month. Tickets are grouped by assignee and 
-          sorted by completion time.
-        </p>
+        <h1>The Blame Game</h1>
+        <p class="subtitle"><em>It was the best of times. It was the worst of times.</em></p>
+        
+        <div class="routes">
+          <div class="route-card">
+            <div class="icon">🐌</div>
+            <h2>SLOW MOTION</h2>
+            <p>
+              View tickets that have been stuck in the same status for 7+ days. 
+              Filter by assignee to see who's responsible for stagnant work. 
+              Tickets are grouped by status (To Do, Ready for Development, In Progress, In Review) 
+              and color-coded based on how long they've been stuck.
+            </p>
+            <a href="/slow" class="route-link slow">View Stagnant Tickets</a>
+          </div>
+          
+          <div class="route-card">
+            <div class="icon">✅</div>
+            <h2>COMPLETED TICKETS</h2>
+            <p>
+              See all tickets that were completed (Done or Won't Do) in a selected time period. 
+              View completion times, assignees, and reporters. Filter by today, yesterday, 
+              this week, this month, or last month. Tickets are grouped by assignee and 
+              sorted by completion time.
+            </p>
         <a href="/done" class="route-link">View Completed</a>
-      </div>
-      
-      <div class="route-card">
-        <div class="icon">⏰</div>
-        <h2>BACKLOG</h2>
-        <p>
-          View all issues currently in the backlog (not in active sprint). See when each ticket was created, 
-          its current status, and how long it's been open. Age is displayed in a human-readable format. 
-          Includes statistics showing total issues, median age, and average age.
-        </p>
+          </div>
+          
+          <div class="route-card">
+            <div class="icon">⏰</div>
+            <h2>BACKLOG</h2>
+            <p>
+              View all issues currently in the backlog (not in active sprint). See when each ticket was created, 
+              its current status, and how long it's been open. Age is displayed in a human-readable format. 
+              Includes statistics showing total issues, median age, and average age.
+            </p>
         <a href="/backlog" class="route-link">View Backlog</a>
-      </div>
+          </div>
       
       <div class="route-card">
         <div class="icon">📊</div>
@@ -221,7 +221,7 @@ app.get('/', (req, res) => {
           Filter by today, yesterday, this week, this month, or last month.
         </p>
         <a href="/progress" class="route-link">View Progress</a>
-      </div>
+        </div>
       
       <div class="route-card">
         <div class="icon">⚖️</div>
@@ -273,8 +273,8 @@ app.get('/slow', async (req, res) => {
         if (sampleIssueResponse.data.issues && sampleIssueResponse.data.issues.length > 0) {
           const issueKey = sampleIssueResponse.data.issues[0].key;
           projectKey = issueKey.split('-')[0]; // Extract project key from issue key (e.g., "ENG-123" -> "ENG")
-        }
-      } catch (error) {
+      }
+    } catch (error) {
         debugError('Error getting project key from sample issue:', error.message);
       }
     }
@@ -541,9 +541,9 @@ app.get('/slow', async (req, res) => {
           const end = moment(currentSprint.endDate);
           sprintDurationDays = end.diff(start, 'days');
         }
-      }
-    } catch (error) {
-      // Use default 14 days if sprint details can't be fetched
+        }
+      } catch (error) {
+        // Use default 14 days if sprint details can't be fetched
     }
 
     // Calculate badge thresholds and add badge class to each issue
@@ -587,156 +587,156 @@ app.get('/slow', async (req, res) => {
 
     // 7. Render HTML
     const styles = `
-      <style>
-        .container { max-width: 1600px; margin: 0 auto; }
-        .status-columns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
-        .status-group { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; flex-direction: column; min-height: 200px; }
-        .status-header { font-size: 1.2em; font-weight: bold; padding-bottom: 15px; border-bottom: 2px solid #dfe1e6; margin-bottom: 15px; display: flex; justify-content: space-between; }
-        .status-content { flex: 1; }
-        .ticket { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid #EBECF0; }
-        .ticket:last-child { border-bottom: none; }
-        .days-badge { 
-          background: #dfe1e6; color: #42526E; 
-          min-width: 50px; height: 50px; border-radius: 50%; 
-          display: flex; flex-direction: column; align-items: center; justify-content: center;
-          margin-right: 20px; font-weight: bold; flex-shrink: 0;
-        }
+        <style>
+          .container { max-width: 1600px; margin: 0 auto; }
+          .status-columns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+          .status-group { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; flex-direction: column; min-height: 200px; }
+          .status-header { font-size: 1.2em; font-weight: bold; padding-bottom: 15px; border-bottom: 2px solid #dfe1e6; margin-bottom: 15px; display: flex; justify-content: space-between; }
+          .status-content { flex: 1; }
+          .ticket { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid #EBECF0; }
+          .ticket:last-child { border-bottom: none; }
+          .days-badge { 
+            background: #dfe1e6; color: #42526E; 
+            min-width: 50px; height: 50px; border-radius: 50%; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            margin-right: 20px; font-weight: bold; flex-shrink: 0;
+          }
         .days-badge.warning { background: #FFFAE6; color: #BF2600; }
         .days-badge.danger { background: #DE350B; color: white; }
-        .days-count { font-size: 18px; line-height: 1; }
-        .days-label { font-size: 9px; text-transform: uppercase; margin-top: 2px; }
-        .details { flex-grow: 1; }
-        .summary { color: #172B4D; }
-        .meta { font-size: 12px; color: #6B778C; margin-top: 4px; }
-        .pr-info { margin-top: 6px; }
-        .pr-link { display: inline-block; background: #E3FCEF; color: #006644; padding: 2px 8px; border-radius: 4px; margin-right: 6px; text-decoration: none; font-size: 11px; }
-        .pr-link:hover { background: #ABF5D1; }
-        .pr-status { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 500; margin-left: 4px; }
-        .pr-status.open { background: #DEEBFF; color: #0052CC; }
-        .pr-status.merged { background: #E3FCEF; color: #006644; }
-        .pr-status.closed { background: #FFEBE6; color: #BF2600; }
-        .pr-review-status { font-size: 10px; color: #6B778C; margin-left: 4px; }
-        .pr-review-status.needs-review { color: #BF2600; font-weight: 500; }
-        .pr-review-status.approved { color: #006644; }
-        @media (max-width: 1400px) {
-          .status-columns { grid-template-columns: repeat(2, 1fr); }
-        }
-        @media (max-width: 800px) {
-          .status-columns { grid-template-columns: 1fr; }
-        }
-      </style>
-      <script>
-        function filterByAssignee(assignee, event) {
-          document.querySelectorAll('.filter-label').forEach(label => {
-            label.classList.remove('active');
-          });
-          if (event && event.target) {
-            event.target.classList.add('active');
-          } else {
-            const filterValue = assignee === 'all' ? 'all' : assignee.replace(/'/g, '&#39;').replace(/"/g, '&quot;');
-            const label = document.querySelector('.filter-label[data-filter="' + filterValue + '"]');
-            if (label) label.classList.add('active');
+          .days-count { font-size: 18px; line-height: 1; }
+          .days-label { font-size: 9px; text-transform: uppercase; margin-top: 2px; }
+          .details { flex-grow: 1; }
+          .summary { color: #172B4D; }
+          .meta { font-size: 12px; color: #6B778C; margin-top: 4px; }
+          .pr-info { margin-top: 6px; }
+          .pr-link { display: inline-block; background: #E3FCEF; color: #006644; padding: 2px 8px; border-radius: 4px; margin-right: 6px; text-decoration: none; font-size: 11px; }
+          .pr-link:hover { background: #ABF5D1; }
+          .pr-status { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 500; margin-left: 4px; }
+          .pr-status.open { background: #DEEBFF; color: #0052CC; }
+          .pr-status.merged { background: #E3FCEF; color: #006644; }
+          .pr-status.closed { background: #FFEBE6; color: #BF2600; }
+          .pr-review-status { font-size: 10px; color: #6B778C; margin-left: 4px; }
+          .pr-review-status.needs-review { color: #BF2600; font-weight: 500; }
+          .pr-review-status.approved { color: #006644; }
+          @media (max-width: 1400px) {
+            .status-columns { grid-template-columns: repeat(2, 1fr); }
           }
-          const tickets = document.querySelectorAll('.ticket');
-          tickets.forEach(ticket => {
-            if (assignee === 'all') {
-              ticket.classList.remove('hidden');
+          @media (max-width: 800px) {
+            .status-columns { grid-template-columns: 1fr; }
+          }
+        </style>
+        <script>
+          function filterByAssignee(assignee, event) {
+            document.querySelectorAll('.filter-label').forEach(label => {
+              label.classList.remove('active');
+            });
+            if (event && event.target) {
+              event.target.classList.add('active');
             } else {
-              const ticketAssignee = ticket.getAttribute('data-assignee');
-              const decodedAssignee = assignee.replace(/&#39;/g, "'").replace(/&quot;/g, '"');
-              const decodedTicketAssignee = ticketAssignee.replace(/&quot;/g, '"');
-              if (decodedTicketAssignee === decodedAssignee) {
+              const filterValue = assignee === 'all' ? 'all' : assignee.replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+              const label = document.querySelector('.filter-label[data-filter="' + filterValue + '"]');
+              if (label) label.classList.add('active');
+            }
+            const tickets = document.querySelectorAll('.ticket');
+            tickets.forEach(ticket => {
+              if (assignee === 'all') {
                 ticket.classList.remove('hidden');
               } else {
-                ticket.classList.add('hidden');
+                const ticketAssignee = ticket.getAttribute('data-assignee');
+                const decodedAssignee = assignee.replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+                const decodedTicketAssignee = ticketAssignee.replace(/&quot;/g, '"');
+                if (decodedTicketAssignee === decodedAssignee) {
+                  ticket.classList.remove('hidden');
+                } else {
+                  ticket.classList.add('hidden');
+                }
               }
-            }
-          });
-          updateTicketCounts();
-        }
-        function updateTicketCounts() {
-          const statusGroups = document.querySelectorAll('.status-group');
-          statusGroups.forEach(group => {
-            const visibleTickets = group.querySelectorAll('.ticket:not(.hidden)').length;
-            const countSpan = group.querySelector('.status-header span:last-child');
-            if (countSpan) {
-              countSpan.textContent = visibleTickets + ' tickets';
-            }
-          });
-        }
-      </script>
+            });
+            updateTicketCounts();
+          }
+          function updateTicketCounts() {
+            const statusGroups = document.querySelectorAll('.status-group');
+            statusGroups.forEach(group => {
+              const visibleTickets = group.querySelectorAll('.ticket:not(.hidden)').length;
+              const countSpan = group.querySelector('.status-header span:last-child');
+              if (countSpan) {
+                countSpan.textContent = visibleTickets + ' tickets';
+              }
+            });
+          }
+        </script>
     `;
     
     const content = `
-      <h1>SLOW MOTION</h1>
-      <p style="text-align: center; color: #6B778C; margin-bottom: 30px; font-size: 14px;">
-        Tickets which have been in the same status for over 7 days
-      </p>
-      
-      <div class="filter-bar">
-        <span class="filter-label all active" data-filter="all" onclick="filterByAssignee('all', event)">All</span>
-        ${allAssignees.map(assignee => {
-          const escapedAssignee = assignee.replace(/'/g, "&#39;").replace(/"/g, '&quot;');
-          const jsSafeAssignee = assignee.replace(/'/g, "\\'").replace(/"/g, '\\"');
-          return `<span class="filter-label" data-filter="${escapedAssignee}" onclick="filterByAssignee('${jsSafeAssignee}', event)">${assignee}</span>`;
-        }).join('')}
-      </div>
-      
-      <div class="status-columns">
-      ${TARGET_STATUSES.map(status => {
-        const list = grouped[status] || [];
-        
-        return `
-          <div class="status-group">
-            <div class="status-header">
-              <span>${status}</span>
-              <span>${list.length} tickets</span>
-            </div>
-            <div class="status-content">
-              ${list.length === 0 ? '<p style="color: #6B778C; text-align: center; padding: 20px;">No tickets</p>' : list.map(i => {
-                return `
-                  <div class="ticket" data-assignee="${i.assignee.replace(/"/g, '&quot;')}">
-                    <div class="days-badge ${i.badgeClass || ''}">
-                      <span class="days-count">${i.days}</span>
-                      <span class="days-label">days</span>
-                    </div>
-                    <div class="details">
-                      <div>
-                        <a href="${i.link}" class="key" target="_blank">${i.key}</a>
-                        <span class="issue-type-badge ${i.issueType}">${i.issueType}</span>
-                        <span class="summary">${i.summary}</span>
-                      </div>
-                      <div class="meta">
-                        <span class="assignee">${i.assignee}</span>
-                      </div>
-                      ${i.prs && i.prs.length > 0 ? `
-                        <div class="pr-info">
-                          ${i.prs.map(pr => {
-                            let reviewText = '';
-                            if (pr.needsReview) {
-                              reviewText = `<span class="pr-review-status needs-review">⚠ Needs review (${pr.completedReviewCount || 0}/${pr.reviewerCount} completed)</span>`;
-                            } else if (pr.approvedCount > 0) {
-                              reviewText = `<span class="pr-review-status approved">✓ ${pr.approvedCount} approved</span>`;
-                            } else if (pr.reviewerCount > 0 && pr.completedReviewCount === pr.reviewerCount) {
-                              reviewText = `<span class="pr-review-status approved">✓ All reviews complete</span>`;
-                            }
-                            return `
-                              <a href="${pr.url}" class="pr-link" target="_blank">PR #${pr.number}</a>
-                              <span class="pr-status ${pr.status}">${pr.status}</span>
-                              ${reviewText}
-                            `;
-                          }).join('')}
-                        </div>
-                      ` : ''}
-                    </div>
-                  </div>
-                `;
-              }).join('')}
-            </div>
+          <h1>SLOW MOTION</h1>
+          <p style="text-align: center; color: #6B778C; margin-bottom: 30px; font-size: 14px;">
+            Tickets which have been in the same status for over 7 days
+          </p>
+          
+          <div class="filter-bar">
+            <span class="filter-label all active" data-filter="all" onclick="filterByAssignee('all', event)">All</span>
+            ${allAssignees.map(assignee => {
+              const escapedAssignee = assignee.replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+              const jsSafeAssignee = assignee.replace(/'/g, "\\'").replace(/"/g, '\\"');
+              return `<span class="filter-label" data-filter="${escapedAssignee}" onclick="filterByAssignee('${jsSafeAssignee}', event)">${assignee}</span>`;
+            }).join('')}
           </div>
-        `;
-      }).join('')}
-      </div>
+          
+          <div class="status-columns">
+          ${TARGET_STATUSES.map(status => {
+            const list = grouped[status] || [];
+            
+            return `
+              <div class="status-group">
+                <div class="status-header">
+                  <span>${status}</span>
+                  <span>${list.length} tickets</span>
+                </div>
+                  <div class="status-content">
+                    ${list.length === 0 ? '<p style="color: #6B778C; text-align: center; padding: 20px;">No tickets</p>' : list.map(i => {
+                  return `
+                    <div class="ticket" data-assignee="${i.assignee.replace(/"/g, '&quot;')}">
+                          <div class="days-badge ${i.badgeClass || ''}">
+                        <span class="days-count">${i.days}</span>
+                        <span class="days-label">days</span>
+                      </div>
+                      <div class="details">
+                        <div>
+                          <a href="${i.link}" class="key" target="_blank">${i.key}</a>
+                          <span class="issue-type-badge ${i.issueType}">${i.issueType}</span>
+                          <span class="summary">${i.summary}</span>
+                        </div>
+                        <div class="meta">
+                          <span class="assignee">${i.assignee}</span>
+                        </div>
+                            ${i.prs && i.prs.length > 0 ? `
+                              <div class="pr-info">
+                                ${i.prs.map(pr => {
+                                  let reviewText = '';
+                                  if (pr.needsReview) {
+                                    reviewText = `<span class="pr-review-status needs-review">⚠ Needs review (${pr.completedReviewCount || 0}/${pr.reviewerCount} completed)</span>`;
+                                  } else if (pr.approvedCount > 0) {
+                                    reviewText = `<span class="pr-review-status approved">✓ ${pr.approvedCount} approved</span>`;
+                                  } else if (pr.reviewerCount > 0 && pr.completedReviewCount === pr.reviewerCount) {
+                                    reviewText = `<span class="pr-review-status approved">✓ All reviews complete</span>`;
+                                  }
+                                  return `
+                                    <a href="${pr.url}" class="pr-link" target="_blank">PR #${pr.number}</a>
+                                    <span class="pr-status ${pr.status}">${pr.status}</span>
+                                    ${reviewText}
+                                  `;
+                                }).join('')}
+                              </div>
+                            ` : ''}
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+                      </div>
+              </div>
+            `;
+          }).join('')}
+              </div>
     `;
 
     res.send(renderPage('Stuck Tickets', content, styles));
@@ -871,7 +871,7 @@ app.get('/done', async (req, res) => {
       const content = `
         <h1>Completed</h1>
         ${generatePeriodSelector(period, '/done')}
-        <p style="color: #6B778C; margin-top: 40px;">No completed tickets found for ${periodLabel}</p>
+            <p style="color: #6B778C; margin-top: 40px;">No completed tickets found for ${periodLabel}</p>
       `;
       return res.send(renderPage('Completed Tickets', content));
     }
@@ -891,7 +891,7 @@ app.get('/done', async (req, res) => {
       const content = `
         <h1>Completed</h1>
         ${generatePeriodSelector(period, '/done')}
-        <p style="color: #6B778C; margin-top: 40px;">No completed tickets found for ${periodLabel}</p>
+            <p style="color: #6B778C; margin-top: 40px;">No completed tickets found for ${periodLabel}</p>
       `;
       return res.send(renderPage('Completed Tickets', content));
     }
@@ -1110,99 +1110,99 @@ app.get('/done', async (req, res) => {
     
     // Generate HTML
     const styles = `
-      <style>
-        .container { max-width: 1400px; margin: 0 auto; }
+        <style>
+          .container { max-width: 1400px; margin: 0 auto; }
         .ticket { display: grid; grid-template-columns: 120px 1fr 150px 150px 140px; gap: 20px; align-items: center; }
         .header-row { display: grid; grid-template-columns: 120px 1fr 150px 150px 140px; gap: 20px; }
-        .duration { font-weight: 600; color: #172B4D; }
-        .completed-date { font-size: 12px; color: #6B778C; }
-      </style>
-      <script>
-        function filterByAssignee(assignee, event) {
-          document.querySelectorAll('.filter-label').forEach(label => {
-            label.classList.remove('active');
-          });
-          if (event && event.target) {
-            event.target.classList.add('active');
-          } else {
-            const filterValue = assignee === 'all' ? 'all' : assignee.replace(/'/g, '&#39;').replace(/"/g, '&quot;');
-            const label = document.querySelector('.filter-label[data-filter="' + filterValue + '"]');
-            if (label) label.classList.add('active');
-          }
-          const tickets = document.querySelectorAll('.ticket');
-          tickets.forEach(ticket => {
-            if (assignee === 'all') {
-              ticket.classList.remove('hidden');
+          .duration { font-weight: 600; color: #172B4D; }
+          .completed-date { font-size: 12px; color: #6B778C; }
+        </style>
+        <script>
+          function filterByAssignee(assignee, event) {
+            document.querySelectorAll('.filter-label').forEach(label => {
+              label.classList.remove('active');
+            });
+            if (event && event.target) {
+              event.target.classList.add('active');
             } else {
-              const ticketAssignee = ticket.getAttribute('data-assignee');
-              const decodedAssignee = assignee.replace(/&#39;/g, "'").replace(/&quot;/g, '"');
-              const decodedTicketAssignee = ticketAssignee.replace(/&quot;/g, '"');
-              if (decodedTicketAssignee === decodedAssignee) {
+              const filterValue = assignee === 'all' ? 'all' : assignee.replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+              const label = document.querySelector('.filter-label[data-filter="' + filterValue + '"]');
+              if (label) label.classList.add('active');
+            }
+            const tickets = document.querySelectorAll('.ticket');
+            tickets.forEach(ticket => {
+              if (assignee === 'all') {
                 ticket.classList.remove('hidden');
               } else {
-                ticket.classList.add('hidden');
+                const ticketAssignee = ticket.getAttribute('data-assignee');
+                const decodedAssignee = assignee.replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+                const decodedTicketAssignee = ticketAssignee.replace(/&quot;/g, '"');
+                if (decodedTicketAssignee === decodedAssignee) {
+                  ticket.classList.remove('hidden');
+                } else {
+                  ticket.classList.add('hidden');
+                }
               }
-            }
-          });
-          updateTicketCount();
-        }
-        function updateTicketCount() {
-          const visibleTickets = document.querySelectorAll('.ticket:not(.hidden)').length;
-          const summaryElement = document.querySelector('.summary');
-          if (summaryElement) {
-            const periodLabel = '${periodLabel}';
-            summaryElement.textContent = visibleTickets + ' ticket' + (visibleTickets !== 1 ? 's' : '') + ' completed in ' + periodLabel;
+            });
+            updateTicketCount();
           }
-        }
-      </script>
+          function updateTicketCount() {
+            const visibleTickets = document.querySelectorAll('.ticket:not(.hidden)').length;
+            const summaryElement = document.querySelector('.summary');
+            if (summaryElement) {
+              const periodLabel = '${periodLabel}';
+              summaryElement.textContent = visibleTickets + ' ticket' + (visibleTickets !== 1 ? 's' : '') + ' completed in ' + periodLabel;
+            }
+          }
+        </script>
     `;
     
     const content = `
-      <h1>COMPLETED TICKETS</h1>
+          <h1>COMPLETED TICKETS</h1>
       ${generatePeriodSelector(period, '/done')}
-      <p class="summary">${processedIssues.length} ticket${processedIssues.length !== 1 ? 's' : ''} completed in ${periodLabel}</p>
-      
-      <div class="filter-bar">
-        <span class="filter-label all active" data-filter="all" onclick="filterByAssignee('all', event)">All</span>
-        ${allAssignees.map(assignee => {
-          const escapedAssignee = assignee.replace(/'/g, "&#39;").replace(/"/g, '&quot;');
-          const jsSafeAssignee = assignee.replace(/'/g, "\\'").replace(/"/g, '\\"');
-          return `<span class="filter-label" data-filter="${escapedAssignee}" onclick="filterByAssignee('${jsSafeAssignee}', event)">${assignee}</span>`;
-        }).join('')}
-      </div>
-      
-      <div class="tickets-list">
-        <div class="header-row">
-          <div>Key</div>
-          <div>Summary</div>
-          <div>Assignee</div>
-          <div>Reporter</div>
-          <div>Duration</div>
-        </div>
-        <div class="tickets-container">
-        ${processedIssues.map(issue => `
-          <div class="ticket" data-assignee="${issue.assignee.replace(/"/g, '&quot;')}">
-            <div>
-              <a href="${issue.link}" class="key" target="_blank">${issue.key}</a>
+          <p class="summary">${processedIssues.length} ticket${processedIssues.length !== 1 ? 's' : ''} completed in ${periodLabel}</p>
+          
+          <div class="filter-bar">
+            <span class="filter-label all active" data-filter="all" onclick="filterByAssignee('all', event)">All</span>
+            ${allAssignees.map(assignee => {
+              const escapedAssignee = assignee.replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+              const jsSafeAssignee = assignee.replace(/'/g, "\\'").replace(/"/g, '\\"');
+              return `<span class="filter-label" data-filter="${escapedAssignee}" onclick="filterByAssignee('${jsSafeAssignee}', event)">${assignee}</span>`;
+            }).join('')}
+          </div>
+          
+          <div class="tickets-list">
+            <div class="header-row">
+              <div>Key</div>
+              <div>Summary</div>
+              <div>Assignee</div>
+              <div>Reporter</div>
+              <div>Duration</div>
             </div>
-            <div class="summary-text">
-              <span class="issue-type-badge ${issue.issueType}">${issue.issueType}</span>
-              ${issue.summary}
-            </div>
-            <div>
-              <span class="assignee">${issue.assignee}</span>
-            </div>
-            <div>
-              <span class="reporter">${issue.reporter}</span>
-            </div>
-            <div>
-              <div class="duration">${issue.durationText}</div>
-              <div class="completed-date">${issue.resolutionStatus === "Won't Do" ? "Won't Do" : 'Done'} (${issue.completedDateFormatted})</div>
+            <div class="tickets-container">
+            ${processedIssues.map(issue => `
+              <div class="ticket" data-assignee="${issue.assignee.replace(/"/g, '&quot;')}">
+                <div>
+                  <a href="${issue.link}" class="key" target="_blank">${issue.key}</a>
+                </div>
+                <div class="summary-text">
+                  <span class="issue-type-badge ${issue.issueType}">${issue.issueType}</span>
+                  ${issue.summary}
+                </div>
+                <div>
+                  <span class="assignee">${issue.assignee}</span>
+                </div>
+                <div>
+                  <span class="reporter">${issue.reporter}</span>
+                </div>
+                <div>
+                  <div class="duration">${issue.durationText}</div>
+                  <div class="completed-date">${issue.resolutionStatus === "Won't Do" ? "Won't Do" : 'Done'} (${issue.completedDateFormatted})</div>
+                </div>
+              </div>
+            `).join('')}
             </div>
           </div>
-        `).join('')}
-        </div>
-      </div>
     `;
 
     res.send(renderPage(`Completed Tickets - ${periodLabel}`, content, styles));
@@ -1232,7 +1232,7 @@ app.get('/progress', async (req, res) => {
     if (!projectKey) {
       try {
         const sampleIssueResponse = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}/issue`, {
-          params: {
+        params: {
             fields: 'key',
             maxResults: 1
           }
@@ -1249,8 +1249,8 @@ app.get('/progress', async (req, res) => {
     // Calculate date ranges based on period
     let startDate, endDate, periodLabel;
     let useSprintFilter = false;
-    const now = moment();
-    
+      const now = moment();
+      
     if (days && days > 0) {
       startDate = moment().subtract(days - 1, 'days').startOf('day');
       endDate = moment().endOf('day');
@@ -1643,8 +1643,8 @@ app.get('/progress', async (req, res) => {
     `;
 
     res.send(renderPage(`Progress Report - ${periodLabel}`, content, styles));
-
-  } catch (error) {
+      
+    } catch (error) {
     debugError(error);
     res.status(500).send(`Error: ${error.message}`);
   }
@@ -1747,7 +1747,7 @@ app.get('/backlog', async (req, res) => {
     if (issueKeys.length === 0) {
       const content = `
         <h1>Backlog</h1>
-        <p style="color: #6B778C; margin-top: 40px;">No backlog issues found</p>
+            <p style="color: #6B778C; margin-top: 40px;">No backlog issues found</p>
       `;
       return res.send(renderPage('Backlog Report', content));
     }
@@ -1982,31 +1982,31 @@ app.get('/backlog', async (req, res) => {
     
     // 8. Generate HTML
     const styles = `
-      <style>
-        .container { max-width: 1400px; margin: 0 auto; }
-        .stats-section { background: white; padding: 15px 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin: 20px 0 30px; }
-        .stats-toggle { cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px; color: #172B4D; font-weight: 600; margin-bottom: 15px; user-select: none; }
-        .stats-toggle:hover { color: #0052CC; }
-        .stats-toggle-icon { transition: transform 0.2s; }
-        .stats-toggle-icon.collapsed { transform: rotate(-90deg); }
-        .stats-content { display: none; }
-        .stats-content.expanded { display: flex; gap: 30px; align-items: flex-start; }
-        .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; flex: 1; }
-        .stat-item { background: #F4F5F7; padding: 12px 16px; border-radius: 6px; text-align: center; }
-        .stat-label { font-size: 11px; color: #6B778C; text-transform: uppercase; margin-bottom: 6px; }
-        .stat-value { font-size: 20px; font-weight: 600; color: #172B4D; }
-        .distribution { flex: 1; }
-        .distribution-title { font-size: 12px; color: #6B778C; text-transform: uppercase; margin-bottom: 12px; font-weight: 600; }
-        .distribution-chart { display: flex; align-items: flex-end; gap: 6px; height: 180px; padding: 10px 0; }
-        .distribution-bar-container { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; }
-        .distribution-bar { width: 100%; background: #0052CC; border-radius: 4px 4px 0 0; min-height: 4px; position: relative; display: flex; flex-direction: column; justify-content: flex-end; transition: background 0.2s; }
-        .distribution-bar.empty { background: #EBECF0; }
-        .distribution-bar-value { font-size: 10px; color: #172B4D; font-weight: 600; text-align: center; margin-bottom: 4px; padding: 2px 0; }
-        .distribution-bar-label { font-size: 8px; color: #6B778C; margin-top: 6px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+        <style>
+          .container { max-width: 1400px; margin: 0 auto; }
+          .stats-section { background: white; padding: 15px 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin: 20px 0 30px; }
+          .stats-toggle { cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px; color: #172B4D; font-weight: 600; margin-bottom: 15px; user-select: none; }
+          .stats-toggle:hover { color: #0052CC; }
+          .stats-toggle-icon { transition: transform 0.2s; }
+          .stats-toggle-icon.collapsed { transform: rotate(-90deg); }
+          .stats-content { display: none; }
+          .stats-content.expanded { display: flex; gap: 30px; align-items: flex-start; }
+          .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; flex: 1; }
+          .stat-item { background: #F4F5F7; padding: 12px 16px; border-radius: 6px; text-align: center; }
+          .stat-label { font-size: 11px; color: #6B778C; text-transform: uppercase; margin-bottom: 6px; }
+          .stat-value { font-size: 20px; font-weight: 600; color: #172B4D; }
+          .distribution { flex: 1; }
+          .distribution-title { font-size: 12px; color: #6B778C; text-transform: uppercase; margin-bottom: 12px; font-weight: 600; }
+          .distribution-chart { display: flex; align-items: flex-end; gap: 6px; height: 180px; padding: 10px 0; }
+          .distribution-bar-container { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; }
+          .distribution-bar { width: 100%; background: #0052CC; border-radius: 4px 4px 0 0; min-height: 4px; position: relative; display: flex; flex-direction: column; justify-content: flex-end; transition: background 0.2s; }
+          .distribution-bar.empty { background: #EBECF0; }
+          .distribution-bar-value { font-size: 10px; color: #172B4D; font-weight: 600; text-align: center; margin-bottom: 4px; padding: 2px 0; }
+          .distribution-bar-label { font-size: 8px; color: #6B778C; margin-top: 6px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
         .issue { display: grid; grid-template-columns: 120px 1fr 150px 120px 120px 180px; gap: 20px; align-items: center; }
         .header-row { display: grid; grid-template-columns: 120px 1fr 150px 120px 120px 180px; gap: 20px; }
-        .age { font-weight: 600; color: #172B4D; }
-        .created-date { font-size: 12px; color: #6B778C; }
+          .age { font-weight: 600; color: #172B4D; }
+          .created-date { font-size: 12px; color: #6B778C; }
         .header-row .sortable {
           cursor: pointer;
           user-select: none;
@@ -2029,7 +2029,7 @@ app.get('/backlog', async (req, res) => {
           content: '▼';
           color: #0052CC;
         }
-      </style>
+        </style>
       <script>
         function sortBacklogColumn(sortKey, sortType, headerEl) {
           const container = document.querySelector('.issues-container');
@@ -2094,67 +2094,67 @@ app.get('/backlog', async (req, res) => {
     };
     
     const content = `
-      <h1>BACKLOG REPORT</h1>
-      
-      <div class="stats-section">
-        <div class="stats-toggle" onclick="this.nextElementSibling.classList.toggle('expanded'); this.querySelector('.stats-toggle-icon').classList.toggle('collapsed');">
-          <span class="stats-toggle-icon collapsed">▼</span>
-          <span>Statistics & Distribution</span>
-        </div>
-        <div class="stats-content">
-          <div class="distribution">
-            <div class="distribution-title">Age Distribution</div>
-            <div class="distribution-chart">
-              ${distributionBuckets.map(bucket => {
-                const height = maxCount > 0 ? (bucket.count / maxCount) * 100 : 0;
-                const isEmpty = bucket.count === 0;
-                return `
-                  <div class="distribution-bar-container">
-                    <div class="distribution-bar ${isEmpty ? 'empty' : ''}" style="height: ${height}%;">
-                      ${!isEmpty ? `<div class="distribution-bar-value">${bucket.count}</div>` : ''}
-                    </div>
-                    <div class="distribution-bar-label">${bucket.label}</div>
-                  </div>
-                `;
-              }).join('')}
+          <h1>BACKLOG REPORT</h1>
+          
+          <div class="stats-section">
+            <div class="stats-toggle" onclick="this.nextElementSibling.classList.toggle('expanded'); this.querySelector('.stats-toggle-icon').classList.toggle('collapsed');">
+              <span class="stats-toggle-icon collapsed">▼</span>
+              <span>Statistics & Distribution</span>
+            </div>
+            <div class="stats-content">
+              <div class="distribution">
+                <div class="distribution-title">Age Distribution</div>
+                <div class="distribution-chart">
+                  ${distributionBuckets.map(bucket => {
+                    const height = maxCount > 0 ? (bucket.count / maxCount) * 100 : 0;
+                    const isEmpty = bucket.count === 0;
+                    return `
+                      <div class="distribution-bar-container">
+                        <div class="distribution-bar ${isEmpty ? 'empty' : ''}" style="height: ${height}%;">
+                          ${!isEmpty ? `<div class="distribution-bar-value">${bucket.count}</div>` : ''}
+                        </div>
+                        <div class="distribution-bar-label">${bucket.label}</div>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              </div>
+              <div class="stats">
+                <div class="stat-item">
+                  <div class="stat-label">Total Issues</div>
+                  <div class="stat-value">${totalIssues}</div>
+                </div>
+                <div class="stat-item">
+                  <div class="stat-label">Min Age</div>
+                  <div class="stat-value">${formatAge(minAge)}</div>
+                </div>
+                <div class="stat-item">
+                  <div class="stat-label">Max Age</div>
+                  <div class="stat-value">${formatAge(maxAge)}</div>
+                </div>
+                <div class="stat-item">
+                  <div class="stat-label">Median Age</div>
+                  <div class="stat-value">${formatAge(medianAge)}</div>
+                </div>
+                <div class="stat-item">
+                  <div class="stat-label">Average Age</div>
+                  <div class="stat-value">${formatAge(avgAge)}</div>
+                </div>
+              </div>
             </div>
           </div>
-          <div class="stats">
-            <div class="stat-item">
-              <div class="stat-label">Total Issues</div>
-              <div class="stat-value">${totalIssues}</div>
-            </div>
-            <div class="stat-item">
-              <div class="stat-label">Min Age</div>
-              <div class="stat-value">${formatAge(minAge)}</div>
-            </div>
-            <div class="stat-item">
-              <div class="stat-label">Max Age</div>
-              <div class="stat-value">${formatAge(maxAge)}</div>
-            </div>
-            <div class="stat-item">
-              <div class="stat-label">Median Age</div>
-              <div class="stat-value">${formatAge(medianAge)}</div>
-            </div>
-            <div class="stat-item">
-              <div class="stat-label">Average Age</div>
-              <div class="stat-value">${formatAge(avgAge)}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <div class="issues-list">
-        <div class="header-row">
+          
+          <div class="issues-list">
+            <div class="header-row">
           <div class="sortable" data-sort-key="keyNumber" data-sort-type="number">Key <span class="sort-indicator"></span></div>
           <div class="sortable" data-sort-key="summary" data-sort-type="text">Summary <span class="sort-indicator"></span></div>
           <div class="sortable" data-sort-key="status" data-sort-type="text">Status <span class="sort-indicator"></span></div>
           <div class="sortable" data-sort-key="createdTimestamp" data-sort-type="number">Created <span class="sort-indicator"></span></div>
           <div class="sortable" data-sort-key="reporter" data-sort-type="text">Reporter <span class="sort-indicator"></span></div>
           <div class="sortable" data-sort-key="ageDays" data-sort-type="number">Age <span class="sort-indicator"></span></div>
-        </div>
-        <div class="issues-container">
-        ${processedIssues.map(issue => `
+            </div>
+            <div class="issues-container">
+            ${processedIssues.map(issue => `
           <div class="issue"
             data-key-number="${issue.keyNumber}"
             data-summary="${toAttr(issue.summary)}"
@@ -2162,29 +2162,29 @@ app.get('/backlog', async (req, res) => {
             data-created-timestamp="${issue.createdTimestamp}"
             data-reporter="${toAttr(issue.reporter)}"
             data-age-days="${issue.ageDays}">
-            <div>
-              <a href="${issue.link}" class="key" target="_blank">${issue.key}</a>
-            </div>
-            <div class="summary-text">
-              <span class="issue-type-badge ${issue.issueType}">${issue.issueType}</span>
-              ${issue.summary}
-            </div>
-            <div>
-              <span class="status">${issue.status}</span>
-            </div>
-            <div>
-              <div class="created-date">${issue.createdFormatted}</div>
-            </div>
-            <div>
+                <div>
+                  <a href="${issue.link}" class="key" target="_blank">${issue.key}</a>
+                </div>
+                <div class="summary-text">
+                  <span class="issue-type-badge ${issue.issueType}">${issue.issueType}</span>
+                  ${issue.summary}
+                </div>
+                <div>
+                  <span class="status">${issue.status}</span>
+                </div>
+                <div>
+                  <div class="created-date">${issue.createdFormatted}</div>
+                </div>
+                <div>
               <span class="reporter">${issue.reporter}</span>
-            </div>
-            <div>
-              <div class="age">${issue.ageText}</div>
+                </div>
+                <div>
+                  <div class="age">${issue.ageText}</div>
+                </div>
+              </div>
+            `).join('')}
             </div>
           </div>
-        `).join('')}
-        </div>
-      </div>
     `;
 
     res.send(renderPage('Backlog Report', content, styles));
@@ -2380,12 +2380,17 @@ app.get('/pr', async (req, res) => {
               
               // Process reviews to get reviewer status
               const reviewerStatuses = {};
+              const reviewerAvatars = {};
               
               // Add requested reviewers who haven't reviewed yet
               reviewRequests.forEach(req => {
                 const reviewerName = req.login || req.slug || (req.name || 'Unknown');
                 if (!reviewerStatuses[reviewerName]) {
                   reviewerStatuses[reviewerName] = { status: 'requested', state: null };
+                }
+                // Capture avatar URLs for users (teams won't have avatar_url)
+                if (req && req.login && req.avatar_url) {
+                  reviewerAvatars[req.login] = req.avatar_url;
                 }
               });
               
@@ -2400,13 +2405,17 @@ app.get('/pr', async (req, res) => {
                   // Override with more definitive status
                   reviewerStatuses[reviewerName] = { status: state, state: state };
                 }
+
+                if (review.user && review.user.login && review.user.avatar_url) {
+                  reviewerAvatars[review.user.login] = review.user.avatar_url;
+                }
               });
               
               allPRs.push({
                 number: pr.number,
                 title: pr.title,
-                branch: pr.head.ref,
                 author: pr.user.login,
+                authorAvatarUrl: pr.user.avatar_url,
                 repo: repo.name,
                 repoFullName: repo.full_name,
                 url: pr.html_url,
@@ -2415,6 +2424,7 @@ app.get('/pr', async (req, res) => {
                 createdAt: moment(pr.created_at),
                 updatedAt: moment(pr.updated_at),
                 reviewerStatuses: reviewerStatuses,
+                reviewerAvatars: reviewerAvatars,
                 reviewRequests: reviewRequests,
                 reviews: reviews
               });
@@ -2453,6 +2463,9 @@ app.get('/pr', async (req, res) => {
           gap: 15px;
           padding: 15px 0;
           border-bottom: 1px solid #e0e0e0;
+          font-size: 13px;
+          font-weight: 400;
+          color: #172B4D;
         }
         .pr:last-child {
           border-bottom: none;
@@ -2490,7 +2503,7 @@ app.get('/pr', async (req, res) => {
           color: #0052CC;
         }
         .pr-number {
-          font-weight: bold;
+          font-weight: 500;
         }
         .pr-number a {
           color: #0052CC;
@@ -2509,8 +2522,15 @@ app.get('/pr', async (req, res) => {
           color: #0052CC;
           text-decoration: underline;
         }
+        .gh-avatar {
+          width: 32px;
+          height: 32px;
+          border-radius: 4px;
+          flex-shrink: 0;
+        }
         .pr-title {
-          font-weight: 500;
+          font-weight: 400;
+          font-size: 13px;
         }
         .pr-repo {
           font-size: 12px;
@@ -2524,6 +2544,9 @@ app.get('/pr', async (req, res) => {
         }
         .pr-author {
           color: #172B4D;
+          display: flex;
+          align-items: center;
+          gap: 10px;
         }
         .pr-dates {
           font-size: 12px;
@@ -2645,6 +2668,7 @@ app.get('/pr', async (req, res) => {
       </script>
     `;
 
+    const now = moment();
     const content = `
       <h1>Pull Requests</h1>
       <p class="summary">Open Pull Requests in ${GITHUB_ORG}</p>
@@ -2654,7 +2678,7 @@ app.get('/pr', async (req, res) => {
           <div class="sortable" data-sort-key="number" data-sort-type="number">PR, Repo <span class="sort-indicator"></span></div>
           <div class="sortable" data-sort-key="title" data-sort-type="text">Title <span class="sort-indicator"></span></div>
           <div class="sortable" data-sort-key="author" data-sort-type="text">Author <span class="sort-indicator"></span></div>
-          <div class="sortable" data-sort-key="updated" data-sort-type="number">Updated <span class="sort-indicator"></span></div>
+          <div class="sortable" data-sort-key="ageDays" data-sort-type="number">Age <span class="sort-indicator"></span></div>
           <div class="sortable" data-sort-key="reviewerCount" data-sort-type="number">Reviewers <span class="sort-indicator"></span></div>
         </div>
         <div class="prs-container">
@@ -2662,6 +2686,7 @@ app.get('/pr', async (req, res) => {
           const reviewersHtml = Object.keys(pr.reviewerStatuses).length === 0 && !pr.isDraft
             ? '<span class="no-reviewers">⚠️ No reviewers assigned</span>'
             : Object.entries(pr.reviewerStatuses).map(([reviewer, status]) => {
+                const avatarUrl = pr.reviewerAvatars && pr.reviewerAvatars[reviewer] ? pr.reviewerAvatars[reviewer] : null;
                 const statusClass = status.status === 'approved' ? 'approved' :
                                   status.status === 'changes_requested' ? 'changes_requested' :
                                   status.status === 'commented' ? 'commented' :
@@ -2674,15 +2699,28 @@ app.get('/pr', async (req, res) => {
                                   status.status === 'dismissed' ? 'Dismissed' : 'Pending';
                 return `
                   <div class="reviewer-item">
+                    ${avatarUrl ? `<img class="gh-avatar" src="${avatarUrl}" alt="${reviewer}"/>` : ''}
                     <span>${reviewer}</span>
                     <span class="review-status ${statusClass}">${statusLabel}</span>
                   </div>
                 `;
               }).join('');
           
-          const repoDisplay = pr.repoFullName || pr.repo || '';
+          const repoDisplay = pr.repo || (pr.repoFullName ? pr.repoFullName.split('/').pop() : '');
           const repoUrl = pr.repoFullName ? `https://github.com/${pr.repoFullName}` : (pr.repo ? `https://github.com/${GITHUB_ORG}/${pr.repo}` : '');
           const reviewerCount = Object.keys(pr.reviewerStatuses || {}).length;
+          const ageDays = now.diff(pr.createdAt, 'days', true);
+          
+          let ageText = '';
+          if (ageDays < 7) {
+            ageText = `${Math.max(0, Math.round(ageDays))}d`;
+          } else if (ageDays < 30) {
+            ageText = `${(ageDays / 7).toFixed(1)}w`;
+          } else if (ageDays < 365) {
+            ageText = `${(ageDays / 30).toFixed(1)}mo`;
+          } else {
+            ageText = `${(ageDays / 365).toFixed(1)}y`;
+          }
           
           return `
             <div class="pr"
@@ -2690,7 +2728,7 @@ app.get('/pr', async (req, res) => {
               data-repo="${repoDisplay.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}"
               data-title="${String(pr.title || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}"
               data-author="${String(pr.author || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}"
-              data-updated="${pr.updatedAt.valueOf()}"
+              data-age-days="${ageDays}"
               data-reviewer-count="${reviewerCount}">
               <div class="pr-number">
                 <a href="${pr.url}" target="_blank">#${pr.number}</a>
@@ -2701,10 +2739,13 @@ app.get('/pr', async (req, res) => {
                 ${pr.ticketNumber ? `<span class="ticket-number">${pr.ticketNumber}</span>` : ''}
                 ${pr.title}
               </div>
-              <div class="pr-author">${pr.author}</div>
+              <div class="pr-author">
+                ${pr.authorAvatarUrl ? `<img class="gh-avatar" src="${pr.authorAvatarUrl}" alt="${pr.author}"/>` : ''}
+                <span>${pr.author}</span>
+              </div>
               <div class="pr-dates">
+                <div><strong>${ageText}</strong></div>
                 <div>Opened: ${pr.createdAt.format('MM/DD/YY')}</div>
-                <div>Updated: ${pr.updatedAt.format('MM/DD/YY')}</div>
               </div>
               <div class="pr-reviewers">
                 ${reviewersHtml}
