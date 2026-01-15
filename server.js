@@ -1855,6 +1855,8 @@ app.get('/backlog', async (req, res) => {
     const processedIssues = issuesWithSprints.map(issue => {
       const createdDate = moment(issue.fields.created);
       const daysOld = now.diff(createdDate, 'days', true); // Use true for decimal precision
+      const keyMatch = issue.key.match(/-(\d+)$/);
+      const keyNumber = keyMatch ? parseInt(keyMatch[1], 10) : 0;
       
       // Humanize age format
       let ageText;
@@ -1888,9 +1890,11 @@ app.get('/backlog', async (req, res) => {
       
       return {
         key: issue.key,
+        keyNumber: keyNumber,
         summary: issue.fields.summary,
         status: issue.fields.status.name,
         created: createdDate.format('YYYY-MM-DD'),
+        createdTimestamp: createdDate.valueOf(),
         createdFormatted: createdDate.format('MM/DD/YY'),
         ageDays: daysOld,
         ageText: ageText,
@@ -1900,8 +1904,8 @@ app.get('/backlog', async (req, res) => {
       };
     });
     
-    // 8. Sort by creation date ascending (oldest first)
-    processedIssues.sort((a, b) => moment(a.created).valueOf() - moment(b.created).valueOf());
+    // 8. Sort by creation date descending (newest first)
+    processedIssues.sort((a, b) => moment(b.created).valueOf() - moment(a.created).valueOf());
     
     // 9. Calculate stats
     const totalIssues = processedIssues.length;
@@ -1993,8 +1997,91 @@ app.get('/backlog', async (req, res) => {
         .header-row { display: grid; grid-template-columns: 120px 1fr 150px 120px 120px 180px; gap: 20px; }
         .age { font-weight: 600; color: #172B4D; }
         .created-date { font-size: 12px; color: #6B778C; }
+        .header-row .sortable {
+          cursor: pointer;
+          user-select: none;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .header-row .sortable:hover {
+          color: #0052CC;
+        }
+        .header-row .sort-indicator {
+          font-size: 11px;
+          color: #6B778C;
+        }
+        .header-row .sort-asc .sort-indicator::after {
+          content: '▲';
+          color: #0052CC;
+        }
+        .header-row .sort-desc .sort-indicator::after {
+          content: '▼';
+          color: #0052CC;
+        }
       </style>
+      <script>
+        function sortBacklogColumn(sortKey, sortType, headerEl) {
+          const container = document.querySelector('.issues-container');
+          if (!container) return;
+          
+          const items = Array.from(container.querySelectorAll('.issue'));
+          const headers = document.querySelectorAll('.header-row .sortable');
+          
+          headers.forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
+          
+          const isCurrentlyDesc = headerEl.classList.contains('sort-desc');
+          const isDesc = !isCurrentlyDesc;
+          headerEl.classList.add(isDesc ? 'sort-desc' : 'sort-asc');
+          
+          items.sort((a, b) => {
+            let aValue = a.dataset[sortKey] || '';
+            let bValue = b.dataset[sortKey] || '';
+            
+            if (sortType === 'number') {
+              aValue = parseFloat(aValue) || 0;
+              bValue = parseFloat(bValue) || 0;
+            } else {
+              aValue = aValue.toString().toLowerCase();
+              bValue = bValue.toString().toLowerCase();
+            }
+            
+            if (aValue < bValue) return isDesc ? 1 : -1;
+            if (aValue > bValue) return isDesc ? -1 : 1;
+            return 0;
+          });
+          
+          items.forEach(item => container.appendChild(item));
+        }
+        
+        function initBacklogSorting() {
+          document.querySelectorAll('.header-row .sortable').forEach(header => {
+            header.addEventListener('click', () => {
+              const sortKey = header.getAttribute('data-sort-key');
+              const sortType = header.getAttribute('data-sort-type') || 'text';
+              sortBacklogColumn(sortKey, sortType, header);
+            });
+          });
+        }
+        
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', initBacklogSorting);
+        } else {
+          initBacklogSorting();
+        }
+      </script>
     `;
+    
+    const toAttr = (value) => {
+      return String(value ?? '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    };
     
     const content = `
       <h1>BACKLOG REPORT</h1>
@@ -2049,16 +2136,22 @@ app.get('/backlog', async (req, res) => {
       
       <div class="issues-list">
         <div class="header-row">
-          <div>Key</div>
-          <div>Summary</div>
-          <div>Status</div>
-          <div>Created</div>
-          <div>Reporter</div>
-          <div>Age</div>
+          <div class="sortable" data-sort-key="keyNumber" data-sort-type="number">Key <span class="sort-indicator"></span></div>
+          <div class="sortable" data-sort-key="summary" data-sort-type="text">Summary <span class="sort-indicator"></span></div>
+          <div class="sortable" data-sort-key="status" data-sort-type="text">Status <span class="sort-indicator"></span></div>
+          <div class="sortable" data-sort-key="createdTimestamp" data-sort-type="number">Created <span class="sort-indicator"></span></div>
+          <div class="sortable" data-sort-key="reporter" data-sort-type="text">Reporter <span class="sort-indicator"></span></div>
+          <div class="sortable" data-sort-key="ageDays" data-sort-type="number">Age <span class="sort-indicator"></span></div>
         </div>
         <div class="issues-container">
         ${processedIssues.map(issue => `
-          <div class="issue">
+          <div class="issue"
+            data-key-number="${issue.keyNumber}"
+            data-summary="${toAttr(issue.summary)}"
+            data-status="${toAttr(issue.status)}"
+            data-created-timestamp="${issue.createdTimestamp}"
+            data-reporter="${toAttr(issue.reporter)}"
+            data-age-days="${issue.ageDays}">
             <div>
               <a href="${issue.link}" class="key" target="_blank">${issue.key}</a>
             </div>
@@ -3211,7 +3304,7 @@ app.get('/load', async (req, res) => {
       
       upcomingSprintsHTML = `
         <div class="load-section">
-          <h2>Upcoming Sprint</h2>
+          <h2>Upcoming Sprints</h2>
           <p class="summary">Ticket count per team member for upcoming sprints (not yet started/active)</p>
           <table class="load-table" id="upcoming-sprints-table">
             <thead>
