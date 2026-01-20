@@ -2466,6 +2466,7 @@ app.get('/pr', async (req, res) => {
           font-size: 13px;
           font-weight: 400;
           color: #172B4D;
+          align-items: start;
         }
         .pr:last-child {
           border-bottom: none;
@@ -2553,7 +2554,7 @@ app.get('/pr', async (req, res) => {
         .pr-author {
           color: #172B4D;
           display: flex;
-          align-items: center;
+          align-items: flex-start;
           gap: 10px;
         }
         .pr-dates {
@@ -2564,10 +2565,11 @@ app.get('/pr', async (req, res) => {
           display: flex;
           flex-direction: column;
           gap: 5px;
+          align-items: flex-start;
         }
         .reviewer-item {
           display: flex;
-          align-items: center;
+          align-items: flex-start;
           gap: 5px;
           font-size: 12px;
         }
@@ -2622,6 +2624,14 @@ app.get('/pr', async (req, res) => {
           font-weight: 500;
           display: inline-block;
           margin-right: 5px;
+        }
+        .ticket-number-link {
+          color: inherit;
+          text-decoration: none;
+        }
+        .ticket-number-link:hover .ticket-number {
+          filter: brightness(1.1);
+          text-decoration: underline;
         }
       </style>
       <script>
@@ -2744,7 +2754,7 @@ app.get('/pr', async (req, res) => {
                 ${repoUrl ? `, <a class="repo-link" href="${repoUrl}" target="_blank" rel="noreferrer">${repoDisplay}</a>` : (repoDisplay ? `, <span class="pr-repo">${repoDisplay}</span>` : '')}
               </div>
               <div class="pr-title">
-                ${pr.ticketNumber ? `<span class="ticket-number">${pr.ticketNumber}</span>` : ''}
+                ${pr.ticketNumber ? `<a class="ticket-number-link" href="https://${JIRA_HOST}/browse/${pr.ticketNumber}" target="_blank" rel="noreferrer"><span class="ticket-number">${pr.ticketNumber}</span></a>` : ''}
                 <a href="${pr.url}" target="_blank" rel="noreferrer">${pr.title}</a>
               </div>
               <div class="pr-author">
@@ -2814,7 +2824,7 @@ app.get('/load', async (req, res) => {
             } else if (columnName.includes('review')) {
               statusNames = ['In Review'];
             } else if (columnName.includes('done')) {
-              statusNames = ['Done'];
+              statusNames = ['Done', "Won't Do", "Wont Do"];
             }
           }
           return {
@@ -2839,7 +2849,7 @@ app.get('/load', async (req, res) => {
         { name: 'To Do', statuses: ['To Do'] },
         { name: 'In Progress', statuses: ['In Progress', 'Ready for Development'] },
         { name: 'In Review', statuses: ['In Review'] },
-        { name: 'Done', statuses: ['Done'] }
+        { name: 'Done', statuses: ['Done', "Won't Do", "Wont Do"] }
       ];
     }
 
@@ -2949,11 +2959,26 @@ app.get('/load', async (req, res) => {
         let columnName = 'Other';
         let statusMapped = false;
         
+        // Special handling: "Won't Do" should map to "Done" column
+        const isWontDo = normalizedStatusName === "won't do" || normalizedStatusName === "wont do";
+        
         for (const column of boardColumns) {
-          // Compare normalized status name to normalized column name
-          if (column.name) {
+          // Check if status is in column's statuses list
+          if (column.statuses && column.statuses.length > 0) {
+            const normalizedColumnStatuses = column.statuses.map(s => s.toLowerCase().trim());
+            if (normalizedColumnStatuses.includes(normalizedStatusName) || 
+                (isWontDo && normalizedColumnStatuses.some(s => s === 'done'))) {
+              columnName = column.name;
+              statusMapped = true;
+              break;
+            }
+          }
+          
+          // Fallback: Compare normalized status name to normalized column name
+          if (column.name && !statusMapped) {
             const normalizedColumnName = column.name.toLowerCase().trim();
-            if (normalizedColumnName === normalizedStatusName) {
+            if (normalizedColumnName === normalizedStatusName || 
+                (isWontDo && normalizedColumnName.includes('done'))) {
               columnName = column.name;
               statusMapped = true;
               break;
@@ -3284,6 +3309,11 @@ app.get('/load', async (req, res) => {
         .total-row td {
           border-top: 2px solid #DFE1E6;
         }
+        .total-row .percentage {
+          color: #6B778C;
+          font-size: 0.85em;
+          font-weight: 400;
+        }
         .summary {
           color: #6B778C;
           margin-bottom: 30px;
@@ -3436,7 +3466,11 @@ app.get('/load', async (req, res) => {
       currentSprintHTML += `
         <tr class="total-row">
           <td><strong>Total</strong></td>
-          ${boardColumns.map(col => `<td class="count"><strong>${currentSprintColumnTotals.get(col.name)}</strong></td>`).join('')}
+          ${boardColumns.map(col => {
+            const colTotal = currentSprintColumnTotals.get(col.name);
+            const percentage = currentSprintGrandTotal > 0 ? ((colTotal / currentSprintGrandTotal) * 100).toFixed(1) : '0.0';
+            return `<td class="count"><strong>${colTotal}</strong> <span class="percentage">(${percentage}%)</span></td>`;
+          }).join('')}
           <td class="count"><strong>${currentSprintGrandTotal}</strong></td>
         </tr>
       `;
