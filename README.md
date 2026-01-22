@@ -174,7 +174,7 @@ npm run dev
 
 The application will be available at `http://localhost:3000`
 
-### Docker
+### Docker (Development)
 
 Build and run with Docker Compose:
 
@@ -190,6 +190,15 @@ Or build and run manually:
 docker build -t jira-shame .
 docker run -p 3000:3000 --env-file .env jira-shame
 ```
+
+### Production Deployment
+
+For production deployment, see [PRODUCTION.md](PRODUCTION.md) for detailed instructions including:
+- Production Docker setup
+- PM2 process management
+- Reverse proxy configuration (Nginx/Apache)
+- Security considerations
+- Monitoring and scaling options
 
 ## Development
 

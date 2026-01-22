@@ -41,8 +41,9 @@ app.use('/', prRoutes);
 app.use('/', loadRoutes);
 
 // Start server
-app.listen(PORT, () => {
-  logger.info(`Server running on http://localhost:${PORT}`);
+// Bind to 0.0.0.0 to allow connections from outside the container (Docker)
+app.listen(PORT, '0.0.0.0', () => {
+  logger.info(`Server running on http://0.0.0.0:${PORT}`);
   if (config.server.debug) {
     logger.info('Debug logging enabled');
   }
