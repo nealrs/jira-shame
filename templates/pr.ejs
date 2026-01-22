@@ -1,0 +1,108 @@
+<% if (typeof error !== 'undefined' && error) { %>
+  <% if (typeof missingVars !== 'undefined' && missingVars.length > 0) { %>
+    <h1>Pull Requests</h1>
+    <div class="error-message">
+      <h2>⚠️ GitHub Configuration Required</h2>
+      <p>
+        The Pull Requests report requires GitHub API access, but the following environment variables are not configured:
+      </p>
+      <ul>
+        <% missingVars.forEach(v => { %>
+          <li><code><%= v %></code></li>
+        <% }); %>
+      </ul>
+      <p>
+        To use this feature, please add these variables to your <code>.env</code> file and restart the server.
+      </p>
+      <p style="margin-top: 30px; font-size: 14px; color: #6B778C;">
+        See the README for instructions on creating a GitHub personal access token.
+      </p>
+    </div>
+  <% } else { %>
+    <h1>Pull Requests</h1>
+    <p>Error: <%= typeof errorMessage !== 'undefined' ? errorMessage : 'Unknown error' %><%= typeof errorStatus !== 'undefined' ? ` (Status: ${errorStatus})` : '' %></p>
+  <% } %>
+<% } else { %>
+  <h1>Pull Requests</h1>
+  <p class="summary">Open Pull Requests in <%= githubOrg %></p>
+  
+  <div class="prs-list">
+    <div class="pr-header">
+      <div class="sortable" data-sort-key="number" data-sort-type="number">PR, Repo <span class="sort-indicator"></span></div>
+      <div class="sortable" data-sort-key="title" data-sort-type="text">Title <span class="sort-indicator"></span></div>
+      <div class="sortable" data-sort-key="author" data-sort-type="text">Author <span class="sort-indicator"></span></div>
+      <div class="sortable" data-sort-key="ageDays" data-sort-type="number">Age <span class="sort-indicator"></span></div>
+      <div class="sortable" data-sort-key="reviewerCount" data-sort-type="number">Reviewers <span class="sort-indicator"></span></div>
+    </div>
+    <div class="prs-container">
+      <% if (!prs || prs.length === 0) { %>
+        <p>No open pull requests found.</p>
+      <% } else { %>
+        <% prs.forEach(pr => { %>
+          <div class="pr"
+            data-number="<%= pr.number %>"
+            data-repo="<%= pr.repoDisplay.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;') %>"
+            data-title="<%= String(pr.title || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;') %>"
+            data-author="<%= String(pr.author || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;') %>"
+            data-age-days="<%= pr.ageDays %>"
+            data-reviewer-count="<%= pr.reviewerCount %>">
+            <div class="pr-number">
+              <a href="<%= pr.url %>" target="_blank">#<%= pr.number %></a>
+              <% if (pr.isDraft) { %>
+                <span class="draft-badge">Draft</span>
+              <% } %>
+              <% if (pr.repoUrl) { %>
+                , <a class="repo-link" href="<%= pr.repoUrl %>" target="_blank" rel="noreferrer"><%= pr.repoDisplay %></a>
+              <% } else if (pr.repoDisplay) { %>
+                , <span class="pr-repo"><%= pr.repoDisplay %></span>
+              <% } %>
+            </div>
+            <div class="pr-title">
+              <% if (pr.ticketNumber) { %>
+                <a class="ticket-number-link" href="https://<%= typeof jiraHost !== 'undefined' ? jiraHost : '' %>/browse/<%= pr.ticketNumber %>" target="_blank" rel="noreferrer"><span class="ticket-number"><%= pr.ticketNumber %></span></a>
+              <% } %>
+              <a href="<%= pr.url %>" target="_blank" rel="noreferrer"><%= pr.title %></a>
+            </div>
+            <div class="pr-author">
+              <% if (pr.authorAvatarUrl) { %>
+                <img class="gh-avatar" src="<%= pr.authorAvatarUrl %>" alt="<%= pr.author %>" loading="lazy"/>
+              <% } %>
+              <span><%= pr.author %></span>
+            </div>
+            <div class="pr-dates">
+              <div><strong><%= pr.ageText %></strong></div>
+              <div>Opened: <%= pr.createdAtFormatted %></div>
+            </div>
+            <div class="pr-reviewers">
+              <% if (pr.reviewers.length === 0 && !pr.isDraft) { %>
+                <span class="no-reviewers">⚠️ No reviewers assigned</span>
+              <% } else { %>
+                <% pr.reviewers.forEach(reviewer => { %>
+                  <% 
+                    const statusClass = reviewer.status === 'approved' ? 'approved' :
+                                      reviewer.status === 'changes_requested' ? 'changes_requested' :
+                                      reviewer.status === 'commented' ? 'commented' :
+                                      reviewer.status === 'requested' ? 'requested' :
+                                      reviewer.status === 'dismissed' ? 'dismissed' : 'requested';
+                    const statusLabel = reviewer.status === 'approved' ? '✓ Approved' :
+                                      reviewer.status === 'changes_requested' ? '✗ Changes Requested' :
+                                      reviewer.status === 'commented' ? '💬 Commented' :
+                                      reviewer.status === 'requested' ? '⏳ Requested' :
+                                      reviewer.status === 'dismissed' ? 'Dismissed' : 'Pending';
+                  %>
+                  <div class="reviewer-item">
+                    <% if (reviewer.avatarUrl) { %>
+                      <img class="gh-avatar" src="<%= reviewer.avatarUrl %>" alt="<%= reviewer.name %>" loading="lazy"/>
+                    <% } %>
+                    <span><%= reviewer.name %></span>
+                    <span class="review-status <%= statusClass %>"><%= statusLabel %></span>
+                  </div>
+                <% }); %>
+              <% } %>
+            </div>
+          </div>
+        <% }); %>
+      <% } %>
+    </div>
+  </div>
+<% } %>

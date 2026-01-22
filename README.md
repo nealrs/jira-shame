@@ -191,10 +191,39 @@ docker build -t jira-shame .
 docker run -p 3000:3000 --env-file .env jira-shame
 ```
 
+## Development
+
+### Project Structure
+
+```
+jira-shame/
+├── config/           # Configuration management
+├── routes/           # Express route handlers
+├── services/        # API service layer (Jira, GitHub)
+├── transformers/    # Data transformation utilities
+├── utils/           # Shared utilities (logger, API client, etc.)
+├── templates/       # EJS templates
+├── public/          # Static assets (CSS, JS, images)
+└── server.js        # Express app entry point
+```
+
+### Hot Reload
+
+The application uses `nodemon` for hot reload during development. The `nodemon.json` configuration watches:
+- `server.js`
+- `routes/`, `services/`, `utils/`, `config/` directories
+- `templates/` directory
+- Files with extensions: `.js`, `.json`, `.ejs`
+
+Run `npm run dev` to start the development server with hot reload.
+
 ## Notes
 
 - **Debug logging**: this app gates verbose logging behind `DEBUG`. If `DEBUG` is not set, it defaults to **on** unless `NODE_ENV=production`.
 - **Navigation**: some routes (like `/pr`) may be intentionally hidden from the nav/landing page until configured, but the route still exists.
+- **HTMX Navigation**: All navigation uses HTMX for SPA-like behavior without full page reloads. Query parameters are preserved across navigation.
+- **Lazy Loading**: Images are lazy-loaded for better performance.
+- **Error Handling**: Comprehensive error handling with retry logic and user-friendly error messages.
 
 ## License
 
@@ -210,10 +239,36 @@ This project is licensed under the **GNU `Affero` General Public License v3.0 (o
 - `GET /pr` - Pull Requests report showing all open pull requests with review status across GitHub organization
 - `GET /load` - Load report showing current sprint board-column load + future sprint load per assignee
 
+## Architecture
+
+The application follows a modular architecture:
+
+- **Routes** (`routes/`) - Express route handlers, one file per route
+- **Services** (`services/`) - API interaction layer for Jira and GitHub
+- **Transformers** (`transformers/`) - Data transformation utilities (date formatting, duration calculations, issue processing)
+- **Utils** (`utils/`) - Shared utilities (API client, logger, error handling, caching)
+- **Config** (`config/`) - Centralized configuration management
+- **Templates** (`templates/`) - EJS templates for server-side rendering
+- **Public** (`public/`) - Static assets (CSS, JavaScript, images)
+
+### Key Features
+
+- **HTMX-powered SPA**: Single-page application experience without full page reloads
+- **Server-side rendering**: EJS templates for fast initial page loads
+- **Error handling**: Comprehensive error boundaries and retry logic
+- **Loading indicators**: Progress indicators for long-running operations
+- **Dark mode**: Solarized dark theme with persistence
+- **Client-side caching**: Session storage for improved performance
+- **Parallel API requests**: Optimized API calls using Promise.all()
+- **Rate limiting**: Graceful handling of API rate limits
+- **Retry logic**: Exponential backoff for transient failures
+
 ## Technologies Used
 
 - **`express`** - Web server framework
-- **`axios`** - HTTP client for `Jira` API requests
+- **`ejs`** - Template engine for server-side rendering
+- **`htmx`** - SPA-like navigation without full page reloads
+- **`axios`** - HTTP client for `Jira` and GitHub API requests
 - **`moment`** - Date manipulation and calculations
 - **`dotenv`** - Environment variable management
 

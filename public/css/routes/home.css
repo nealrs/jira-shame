@@ -1,0 +1,67 @@
+.subtitle {
+  text-align: center;
+  color: #6B778C;
+  font-size: 18px;
+  margin-bottom: 60px;
+}
+
+.routes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 30px;
+  margin-top: 40px;
+}
+
+.route-card {
+  background: white;
+  border-radius: 8px;
+  padding: 30px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.route-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.route-card h2 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #172B4D;
+  font-size: 24px;
+}
+
+.route-card p {
+  color: #6B778C;
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+.route-link {
+  display: inline-block;
+  padding: 12px 24px;
+  background: #0052CC;
+  color: white;
+  text-decoration: none;
+  border-radius: 4px;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.route-link:hover {
+  background: #0065FF;
+}
+
+.route-link.slow {
+  background: #DE350B;
+}
+
+.route-link.slow:hover {
+  background: #FF5630;
+}
+
+.icon {
+  font-size: 32px;
+  margin-bottom: 15px;
+}

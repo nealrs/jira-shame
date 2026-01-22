@@ -1,0 +1,108 @@
+<div class="backlog-page">
+<% if (processedIssues.length === 0) { %>
+  <h1>Backlog</h1>
+  <p style="color: #6B778C; margin-top: 40px;">No backlog issues found</p>
+<% } else { %>
+  <h1>BACKLOG REPORT</h1>
+  
+  <div class="stats-section">
+    <div class="stats-toggle" onclick="this.nextElementSibling.classList.toggle('expanded'); this.querySelector('.stats-toggle-icon').classList.toggle('collapsed');">
+      <span class="stats-toggle-icon collapsed">▼</span>
+      <span>Statistics & Distribution</span>
+    </div>
+    <div class="stats-content">
+      <div class="distribution">
+        <div class="distribution-title">Age Distribution</div>
+        <div class="distribution-chart">
+          <% distributionBuckets.forEach(bucket => { %>
+            <div class="distribution-bar-container">
+              <div class="distribution-bar <%= bucket.isEmpty ? 'empty' : '' %>" style="height: <%= bucket.height %>%;">
+                <% if (!bucket.isEmpty) { %>
+                  <div class="distribution-bar-value"><%= bucket.count %></div>
+                <% } %>
+              </div>
+              <div class="distribution-bar-label"><%= bucket.label %></div>
+            </div>
+          <% }); %>
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat-item">
+          <div class="stat-label">Total Issues</div>
+          <div class="stat-value"><%= stats.totalIssues %></div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Min Age</div>
+          <div class="stat-value"><%= stats.minAge %></div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Max Age</div>
+          <div class="stat-value"><%= stats.maxAge %></div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Median Age</div>
+          <div class="stat-value"><%= stats.medianAge %></div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Average Age</div>
+          <div class="stat-value"><%= stats.avgAge %></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="issues-list">
+    <div class="header-row">
+      <div class="sortable" data-sort-key="keyNumber" data-sort-type="number">Key <span class="sort-indicator"></span></div>
+      <div class="sortable" data-sort-key="summary" data-sort-type="text">Summary <span class="sort-indicator"></span></div>
+      <div class="sortable" data-sort-key="status" data-sort-type="text">Status <span class="sort-indicator"></span></div>
+      <div class="sortable" data-sort-key="createdTimestamp" data-sort-type="number">Created <span class="sort-indicator"></span></div>
+      <div class="sortable" data-sort-key="reporter" data-sort-type="text">Reporter <span class="sort-indicator"></span></div>
+      <div class="sortable" data-sort-key="ageDays" data-sort-type="number">Age <span class="sort-indicator"></span></div>
+    </div>
+    <div class="issues-container">
+      <% processedIssues.forEach(issue => { %>
+        <% 
+          const toAttr = (value) => {
+            return String(value ?? '')
+              .replace(/\s+/g, ' ')
+              .trim()
+              .replace(/&/g, '&amp;')
+              .replace(/"/g, '&quot;')
+              .replace(/'/g, '&#39;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;');
+          };
+        %>
+        <div class="issue"
+          data-key-number="<%= issue.keyNumber %>"
+          data-summary="<%= toAttr(issue.summary) %>"
+          data-status="<%= toAttr(issue.status) %>"
+          data-created-timestamp="<%= issue.createdTimestamp %>"
+          data-reporter="<%= toAttr(issue.reporter) %>"
+          data-age-days="<%= issue.ageDays %>">
+          <div>
+            <a href="<%= issue.link %>" class="key" target="_blank"><%= issue.key %></a>
+          </div>
+          <div class="summary-text">
+            <span class="issue-type-badge <%= issue.issueType %>"><%= issue.issueType %></span>
+            <%= issue.summary %>
+          </div>
+          <div>
+            <span class="status"><%= issue.status %></span>
+          </div>
+          <div>
+            <div class="created-date"><%= issue.createdFormatted %></div>
+          </div>
+          <div>
+            <span class="reporter"><%= issue.reporter %></span>
+          </div>
+          <div>
+            <div class="age"><%= issue.ageText %></div>
+          </div>
+        </div>
+      <% }); %>
+    </div>
+  </div>
+<% } %>
+</div>

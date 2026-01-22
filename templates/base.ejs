@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title><%= typeof title !== 'undefined' ? title : 'Jira Shame' %></title>
+  <link rel="icon" type="image/png" href="/img/favico.png">
+  <link rel="stylesheet" href="/css/common.css">
+  <link rel="stylesheet" href="/css/routes.css">
+  <% if (typeof additionalStyles !== 'undefined' && additionalStyles) { %>
+    <style><%- additionalStyles %></style>
+  <% } %>
+  <style id="dark-mode-styles"></style>
+</head>
+<body class="<%= typeof bodyClass !== 'undefined' ? bodyClass : '' %>" data-theme="light">
+  <%- include('nav') %>
+  <div id="htmx-loading" class="htmx-indicator" role="status" aria-live="polite" aria-label="Loading content">
+    <div class="loading-spinner" aria-hidden="true"></div>
+    <span class="loading-text" id="loading-text">Loading...</span>
+    <div class="loading-progress" id="loading-progress" style="display: none; margin-top: 10px; font-size: 12px; color: var(--text-muted, #6B778C);"></div>
+  </div>
+  <main id="main-content" class="container" hx-indicator="#htmx-loading" role="main">
+    <% if (typeof template !== 'undefined' && template) { %>
+      <% 
+        const templatePath = template.includes('.ejs') ? template : template + '.ejs';
+        const data = typeof templateData !== 'undefined' ? templateData : {};
+      %>
+      <%- include(templatePath, data) %>
+    <% } else if (typeof content !== 'undefined') { %>
+      <%- content %>
+      <% } %>
+    </main>
+  
+  <!-- htmx from CDN -->
+  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+  <!-- Common utilities (filtering, sorting, caching) -->
+  <script src="/js/common.js"></script>
+  <script src="/js/table-sort.js"></script>
+  <script src="/js/cache.js"></script>
+  <script src="/js/dark-mode.js"></script>
+  
+  <!-- Handle script loading, nav highlighting, query param preservation, and error handling for htmx -->
+  <script>
+    // Enhanced Loading States
+    let loadingSteps = [];
+    let currentStep = 0;
+    
+    document.body.addEventListener('htmx:beforeRequest', function(event) {
+      const url = new URL(event.detail.path, window.location.origin);
+      const route = url.pathname;
+      
+      // Set loading steps based on route
+      if (route === '/slow') {
+        loadingSteps = ['Fetching issues...', 'Loading changelogs...', 'Processing data...'];
+      } else if (route === '/pr') {
+        loadingSteps = ['Fetching repositories...', 'Loading pull requests...', 'Processing reviews...'];
+      } else if (route === '/load') {
+        loadingSteps = ['Loading sprint data...', 'Calculating load...'];
+      } else {
+        loadingSteps = ['Loading data...'];
+      }
+      
+      currentStep = 0;
+      updateLoadingText();
+      
+      // Simulate progress for long operations
+      if (loadingSteps.length > 1) {
+        const progressInterval = setInterval(() => {
+          if (currentStep < loadingSteps.length - 1) {
+            currentStep++;
+            updateLoadingText();
+          } else {
+            clearInterval(progressInterval);
+          }
+        }, 1500);
+        
+        // Clear interval when request completes
+        document.body.addEventListener('htmx:afterSwap', function clearProgress() {
+          clearInterval(progressInterval);
+          document.body.removeEventListener('htmx:afterSwap', clearProgress);
+        }, { once: true });
+      }
+    });
+    
+    function updateLoadingText() {
+      const loadingText = document.getElementById('loading-text');
+      const loadingProgress = document.getElementById('loading-progress');
+      
+      if (loadingText && loadingSteps.length > 0) {
+        loadingText.textContent = loadingSteps[currentStep] || 'Loading...';
+      }
+      
+      if (loadingProgress && loadingSteps.length > 1) {
+        loadingProgress.style.display = 'block';
+        loadingProgress.textContent = `Step ${currentStep + 1} of ${loadingSteps.length}`;
+      }
+    }
+
+    // HTMX Error Handling
+    document.body.addEventListener('htmx:responseError', function(event) {
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'htmx-error-message';
+      errorDiv.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #FFEBE6; border: 2px solid #DE350B; border-radius: 8px; padding: 16px 20px; max-width: 400px; z-index: 10000; box-shadow: 0 4px 12px rgba(0,0,0,0.15);';
+      errorDiv.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+          <h3 style="margin: 0; color: #DE350B; font-size: 16px;">⚠️ Error</h3>
+          <button onclick="this.parentElement.parentElement.remove()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #6B778C; padding: 0; margin-left: 10px;">&times;</button>
+        </div>
+        <p style="margin: 0 0 12px 0; color: #172B4D; font-size: 14px;">${event.detail.xhr.statusText || 'Request failed'}</p>
+        <button onclick="htmx.trigger('body', 'htmx:retry')" style="padding: 6px 12px; background: #0052CC; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-right: 8px;">Retry</button>
+        <button onclick="window.location.reload()" style="padding: 6px 12px; background: #DFE1E6; color: #172B4D; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">Reload</button>
+      `;
+      document.body.appendChild(errorDiv);
+      
+      // Auto-remove after 10 seconds
+      setTimeout(() => {
+        if (errorDiv.parentElement) {
+          errorDiv.remove();
+        }
+      }, 10000);
+    });
+
+    // Preserve query params when navigating
+    document.body.addEventListener('htmx:configRequest', function(event) {
+      const currentUrl = new URL(window.location.href);
+      const targetUrl = new URL(event.detail.path, window.location.origin);
+      
+      // Preserve query params from current URL
+      currentUrl.searchParams.forEach((value, key) => {
+        if (!targetUrl.searchParams.has(key)) {
+          targetUrl.searchParams.set(key, value);
+        }
+      });
+      
+      // Update the request path to include preserved query params
+      event.detail.path = targetUrl.pathname + targetUrl.search;
+    });
+    
+    // Update active nav link based on current URL
+    function updateActiveNav() {
+      const currentPath = window.location.pathname;
+      document.querySelectorAll('.nav-links a').forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === currentPath || 
+            (currentPath === '/' && link.getAttribute('href') === '/')) {
+          link.classList.add('active');
+        }
+      });
+    }
+    
+    // Update on initial load
+    updateActiveNav();
+    
+    // Update on htmx navigation
+    document.body.addEventListener('htmx:afterSwap', function(event) {
+      updateActiveNav();
+    });
+    
+    // Update on browser back/forward
+    window.addEventListener('popstate', updateActiveNav);
+    
+    document.body.addEventListener('htmx:beforeSwap', function(event) {
+      const responseText = event.detail.xhr.responseText;
+      if (!responseText) return;
+      
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = responseText;
+      
+      // Handle script loading - load synchronously to ensure functions are available
+      const scriptTag = tempDiv.querySelector('script[data-route-script]');
+      if (scriptTag) {
+        const src = scriptTag.getAttribute('src');
+        let routeScript = document.getElementById('route-script');
+        const currentSrc = routeScript ? (routeScript.src || routeScript.getAttribute('src') || '') : '';
+        const newSrc = window.location.origin + src;
+        
+        if (!routeScript || (currentSrc && currentSrc !== newSrc && !currentSrc.endsWith(src))) {
+          if (routeScript) routeScript.remove();
+          // Load script synchronously to ensure functions are available immediately
+          const script = document.createElement('script');
+          script.src = src;
+          script.id = 'route-script';
+          script.async = false; // Load synchronously
+          document.body.appendChild(script);
+        }
+        scriptTag.remove();
+      }
+      
+      // Remove any stylesheet links from response (no longer needed)
+      const stylesheetLink = tempDiv.querySelector('link[data-route-stylesheet]');
+      if (stylesheetLink) {
+        stylesheetLink.remove();
+      }
+      
+      // Update response to exclude processed elements
+      if (tempDiv.innerHTML !== responseText) {
+        Object.defineProperty(event.detail.xhr, 'responseText', {
+          writable: true,
+          value: tempDiv.innerHTML
+        });
+      }
+    });
+  </script>
+  
+  <!-- Route-specific scripts -->
+  <% if (typeof script !== 'undefined' && script) { %>
+    <script src="<%= script %>" id="route-script"></script>
+  <% } else { %>
+    <script id="route-script"></script>
+  <% } %>
+  <% if (typeof inlineScript !== 'undefined' && inlineScript) { %>
+    <script><%- inlineScript %></script>
+  <% } %>
+</body>
+</html>

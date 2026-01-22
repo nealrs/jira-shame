@@ -1,0 +1,45 @@
+<h1>Dashboard</h1>
+
+<div class="route-list">
+  <div class="route-item">
+    <div class="route-header">
+      <a href="/slow" class="route-title" hx-get="/slow" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true" hx-indicator="body">Slow Motion</a>
+    </div>
+    <p class="route-description">Tickets stuck in the same status for 7+ days, grouped by status and filterable by assignee.</p>
+  </div>
+
+  <div class="route-item">
+    <div class="route-header">
+      <a href="/done" class="route-title" hx-get="/done" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true" hx-indicator="body">Completed Tickets</a>
+    </div>
+    <p class="route-description">Tickets completed (Done or Won't Do) in a selected time period with completion times and assignees.</p>
+  </div>
+
+  <div class="route-item">
+    <div class="route-header">
+      <a href="/backlog" class="route-title" hx-get="/backlog" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true" hx-indicator="body">Backlog</a>
+    </div>
+    <p class="route-description">All issues in the backlog with creation dates, status, and age statistics.</p>
+  </div>
+
+  <div class="route-item">
+    <div class="route-header">
+      <a href="/progress" class="route-title" hx-get="/progress" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true" hx-indicator="body">Progress</a>
+    </div>
+    <p class="route-description">Issues that changed status in a selected time period with status, assignee, and priority changes.</p>
+  </div>
+
+  <div class="route-item">
+    <div class="route-header">
+      <a href="/load" class="route-title" hx-get="/load" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true" hx-indicator="body">Load</a>
+    </div>
+    <p class="route-description">Ticket load distribution across team members by board column and upcoming sprint assignments.</p>
+  </div>
+
+  <div class="route-item">
+    <div class="route-header">
+      <a href="/pr" class="route-title" hx-get="/pr" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true" hx-indicator="body">Pull Requests</a>
+    </div>
+    <p class="route-description">Open pull requests across GitHub org with review status and reviewer information.</p>
+  </div>
+</div>

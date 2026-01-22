@@ -1,0 +1,36 @@
+.container { max-width: 1600px; margin: 0 auto; }
+.status-columns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+.status-group { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; flex-direction: column; min-height: 200px; }
+.status-header { font-size: 1.2em; font-weight: bold; padding-bottom: 15px; border-bottom: 2px solid #dfe1e6; margin-bottom: 15px; display: flex; justify-content: space-between; }
+.status-content { flex: 1; }
+.ticket { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid #EBECF0; }
+.ticket:last-child { border-bottom: none; }
+.days-badge { 
+  background: #dfe1e6; color: #42526E; 
+  min-width: 50px; height: 50px; border-radius: 50%; 
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  margin-right: 20px; font-weight: bold; flex-shrink: 0;
+}
+.days-badge.warning { background: #FFFAE6; color: #BF2600; }
+.days-badge.danger { background: #DE350B; color: white; }
+.days-count { font-size: 18px; line-height: 1; }
+.days-label { font-size: 9px; text-transform: uppercase; margin-top: 2px; }
+.details { flex-grow: 1; }
+.summary { color: #172B4D; }
+.meta { font-size: 12px; color: #6B778C; margin-top: 4px; }
+.pr-info { margin-top: 6px; }
+.pr-link { display: inline-block; background: #E3FCEF; color: #006644; padding: 2px 8px; border-radius: 4px; margin-right: 6px; text-decoration: none; font-size: 11px; }
+.pr-link:hover { background: #ABF5D1; }
+.pr-status { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 500; margin-left: 4px; }
+.pr-status.open { background: #DEEBFF; color: #0052CC; }
+.pr-status.merged { background: #E3FCEF; color: #006644; }
+.pr-status.closed { background: #FFEBE6; color: #BF2600; }
+.pr-review-status { font-size: 10px; color: #6B778C; margin-left: 4px; }
+.pr-review-status.needs-review { color: #BF2600; font-weight: 500; }
+.pr-review-status.approved { color: #006644; }
+@media (max-width: 1400px) {
+  .status-columns { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 800px) {
+  .status-columns { grid-template-columns: 1fr; }
+}

@@ -1,0 +1,21 @@
+<div class="period-selector">
+  <% const periods = [
+    { key: 'this-sprint', label: 'This Sprint' },
+    { key: 'today', label: 'Today' },
+    { key: 'yesterday', label: 'Yesterday' },
+    { key: 'this-week', label: 'This Week' },
+    { key: 'last-7-days', label: 'Last 7 Days' },
+    { key: 'this-month', label: 'This Month' },
+    { key: 'last-month', label: 'Last Month' }
+  ]; %>
+  <% periods.forEach(p => { %>
+      <a href="<%= basePath %>?period=<%= p.key %>"
+         class="<%= currentPeriod === p.key ? 'active' : '' %>"
+         hx-get="<%= basePath %>?period=<%= p.key %>"
+         hx-target="#main-content"
+         hx-swap="innerHTML"
+         hx-push-url="true"
+         hx-indicator="body"
+         hx-preserve="query"><%= p.label %></a>
+  <% }); %>
+</div>

@@ -1,0 +1,82 @@
+<div class="done-page">
+<% if (processedIssues.length === 0) { %>
+  <h1>Completed</h1>
+  <%- include('partials/period-selector', { currentPeriod: period, basePath: '/done' }) %>
+  <p style="color: #6B778C; margin-top: 40px;">No completed tickets found for <%= periodLabel %></p>
+<% } else { %>
+  <h1>COMPLETED TICKETS</h1>
+  <%- include('partials/period-selector', { currentPeriod: period, basePath: '/done' }) %>
+  <p class="summary" data-period-label="<%= periodLabel %>">
+    <%= processedIssues.length %> ticket<%= processedIssues.length !== 1 ? 's' : '' %> completed in <%= periodLabel %>
+  </p>
+
+  <%- include('partials/filter-bar', { assignees: allAssignees }) %>
+
+  <div class="tickets-list">
+    <div class="header-row">
+      <div class="sortable" data-sort-key="key" data-sort-type="text">Key <span class="sort-indicator"></span></div>
+      <div class="sortable" data-sort-key="summary" data-sort-type="text">Summary <span class="sort-indicator"></span></div>
+      <div class="sortable" data-sort-key="assignee" data-sort-type="text">Assignee <span class="sort-indicator"></span></div>
+      <div class="sortable" data-sort-key="reporter" data-sort-type="text">Reporter <span class="sort-indicator"></span></div>
+      <div class="sortable" data-sort-key="duration" data-sort-type="number">Duration <span class="sort-indicator"></span></div>
+    </div>
+    <div class="tickets-container">
+      <% processedIssues.forEach(issue => { %>
+        <% 
+          const toAttr = (value) => {
+            return String(value ?? '')
+              .replace(/\s+/g, ' ')
+              .trim()
+              .replace(/&/g, '&amp;')
+              .replace(/"/g, '&quot;')
+              .replace(/'/g, '&#39;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;');
+          };
+          // Extract numeric duration for sorting (e.g., "2 days" -> 2, "1 week" -> 7)
+          let durationSort = 0;
+          const durationMatch = issue.durationText.match(/(\d+)/);
+          if (durationMatch) {
+            const num = parseInt(durationMatch[1]);
+            if (issue.durationText.includes('hour')) durationSort = num / 24;
+            else if (issue.durationText.includes('day')) durationSort = num;
+            else if (issue.durationText.includes('week')) durationSort = num * 7;
+            else if (issue.durationText.includes('month')) durationSort = num * 30;
+          }
+        %>
+        <% 
+          // Use same escaping as filter-bar to ensure matching
+          const escapedAssignee = issue.assignee.replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+        %>
+        <div class="ticket" 
+             data-assignee="<%= escapedAssignee %>"
+             data-key="<%= toAttr(issue.key) %>"
+             data-summary="<%= toAttr(issue.summary) %>"
+             data-assignee-sort="<%= toAttr(issue.assignee) %>"
+             data-reporter="<%= toAttr(issue.reporter) %>"
+             data-duration="<%= durationSort %>">
+          <div>
+            <a href="<%= issue.link %>" class="key" target="_blank"><%= issue.key %></a>
+          </div>
+          <div class="summary-text">
+            <span class="issue-type-badge <%= issue.issueType %>"><%= issue.issueType %></span>
+            <%= issue.summary %>
+          </div>
+          <div>
+            <span class="assignee"><%= issue.assignee %></span>
+          </div>
+          <div>
+            <span class="reporter"><%= issue.reporter %></span>
+          </div>
+          <div>
+            <div class="duration"><%= issue.durationText %></div>
+            <div class="completed-date">
+              <%= issue.resolutionStatus === "Won't Do" ? "Won't Do" : 'Done' %> (<%= issue.completedDateFormatted %>)
+            </div>
+          </div>
+        </div>
+      <% }); %>
+    </div>
+  </div>
+<% } %>
+</div>
