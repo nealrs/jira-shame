@@ -1,0 +1,132 @@
+.load-section {
+  margin-bottom: 40px;
+}
+
+.load-section h2 {
+  color: #172B4D;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #DFE1E6;
+  padding-bottom: 10px;
+}
+
+.load-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.load-table th {
+  background: #DFE1E6;
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: #172B4D;
+  border-bottom: 2px solid #C1C7D0;
+  position: relative;
+}
+
+.load-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.load-table th.sortable:hover {
+  background: #C1C7D0;
+}
+
+.load-table th .sort-indicator {
+  display: inline-block;
+  margin-left: 6px;
+  color: #6B778C;
+  font-size: 12px;
+}
+
+.load-table th.sort-asc .sort-indicator::after {
+  content: '▲';
+  color: #0052CC;
+}
+
+.load-table th.sort-desc .sort-indicator::after {
+  content: '▼';
+  color: #0052CC;
+}
+
+.load-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #DFE1E6;
+}
+
+.load-table tr:last-child td {
+  border-bottom: none;
+}
+
+.load-table tbody tr:nth-child(even) {
+  background: #FAFBFC;
+}
+
+.load-table tbody tr:nth-child(odd) {
+  background: white;
+}
+
+.load-table tr:hover {
+  background: #F4F5F7 !important;
+}
+
+.assignee-name {
+  font-weight: 600;
+  color: #172B4D;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.assignee-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.count {
+  text-align: center;
+  font-weight: 500;
+}
+
+.count.zero {
+  color: #6B778C;
+}
+
+.total-row {
+  background: #F4F5F7;
+  font-weight: 600;
+}
+
+.total-row td {
+  border-top: 2px solid #DFE1E6;
+}
+
+.total-row .percentage {
+  color: #6B778C;
+  font-size: 0.85em;
+  font-weight: 400;
+}
+
+.summary {
+  color: #6B778C;
+  margin-bottom: 30px;
+}
+
+.sprint-info {
+  background: #F4F5F7;
+  padding: 12px 16px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+  color: #172B4D;
+}
+
+.sprint-info strong {
+  color: #0052CC;
+}

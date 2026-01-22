@@ -1,0 +1,105 @@
+<div class="load-page">
+<% if (typeof error !== 'undefined' && error) { %>
+  <h1>Sprint Load</h1>
+  <p>Error: <%= typeof errorMessage !== 'undefined' ? errorMessage : 'Unknown error' %><%= typeof errorStatus !== 'undefined' ? ` (Status: ${errorStatus})` : '' %></p>
+<% } else { %>
+  <h1>Sprint Load</h1>
+  
+  <% if (currentSprint) { %>
+    <div class="load-section">
+      <h2>Current Sprint: <%= currentSprint.name %><% if (currentSprint.startDate && currentSprint.endDate) { %> (<%= currentSprint.startDate %> - <%= currentSprint.endDate %>)<% } %></h2>
+      <p class="summary">Ticket count per team member by board column for the current sprint</p>
+      <table class="load-table" id="current-sprint-table">
+        <thead>
+          <tr>
+            <th class="sortable">Team Member<span class="sort-indicator"></span></th>
+            <% boardColumns.forEach(col => { %>
+              <th class="sortable sort-numeric"><%= col.name %><span class="sort-indicator"></span></th>
+            <% }); %>
+            <th class="sortable sort-numeric">Total<span class="sort-indicator"></span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% currentSprint.assignees.forEach(assignee => { %>
+            <tr>
+              <td class="assignee-name">
+                <% if (assignee.avatarUrl) { %>
+                  <img src="<%= assignee.avatarUrl %>" alt="<%= assignee.name %>" class="assignee-avatar" loading="lazy">
+                <% } %>
+                <%= assignee.name %>
+              </td>
+              <% assignee.load.forEach(colLoad => { %>
+                <td class="count <%= colLoad.count === 0 ? 'zero' : '' %>"><%= colLoad.count %></td>
+              <% }); %>
+              <td class="count"><strong><%= assignee.total %></strong></td>
+            </tr>
+          <% }); %>
+          <tr class="total-row">
+            <td><strong>Total</strong></td>
+            <% currentSprint.columnTotals.forEach(colTotal => { %>
+              <% 
+                const percentage = currentSprint.grandTotal > 0 ? ((colTotal.total / currentSprint.grandTotal) * 100).toFixed(1) : '0.0';
+              %>
+              <td class="count"><strong><%= colTotal.total %></strong> <span class="percentage">(<%= percentage %>%)</span></td>
+            <% }); %>
+            <td class="count"><strong><%= currentSprint.grandTotal %></strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+  
+  <div class="load-section">
+    <h2>Upcoming Sprints</h2>
+    <% if (upcomingSprints.length === 0) { %>
+      <p class="summary">No upcoming sprints found.</p>
+    <% } else { %>
+      <p class="summary">Ticket count per team member for upcoming sprints (not yet started/active)</p>
+      <table class="load-table" id="upcoming-sprints-table">
+        <thead>
+          <tr>
+            <th class="sortable">Team Member<span class="sort-indicator"></span></th>
+            <% upcomingSprints.forEach(sprint => { %>
+              <th class="sortable sort-numeric"><%= sprint.name %><span class="sort-indicator"></span></th>
+            <% }); %>
+            <th class="sortable sort-numeric">Total<span class="sort-indicator"></span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% 
+            // Calculate sprint totals - EJS doesn't support Map, so use object
+            const sprintTotalsObj = {};
+            upcomingSprints.forEach(sprint => sprintTotalsObj[sprint.name] = 0);
+            upcomingLoad.forEach(assignee => {
+              assignee.sprintLoads.forEach(sprintLoad => {
+                sprintTotalsObj[sprintLoad.sprintName] = (sprintTotalsObj[sprintLoad.sprintName] || 0) + sprintLoad.count;
+              });
+            });
+          %>
+          <% upcomingLoad.forEach(assignee => { %>
+            <tr>
+              <td class="assignee-name">
+                <% if (assignee.avatarUrl) { %>
+                  <img src="<%= assignee.avatarUrl %>" alt="<%= assignee.name %>" class="assignee-avatar" loading="lazy">
+                <% } %>
+                <%= assignee.name %>
+              </td>
+              <% assignee.sprintLoads.forEach(sprintLoad => { %>
+                <td class="count <%= sprintLoad.count === 0 ? 'zero' : '' %>"><%= sprintLoad.count %></td>
+              <% }); %>
+              <td class="count"><strong><%= assignee.total %></strong></td>
+            </tr>
+          <% }); %>
+          <tr class="total-row">
+            <td><strong>Total</strong></td>
+            <% upcomingSprints.forEach(sprint => { %>
+              <td class="count"><strong><%= sprintTotalsObj[sprint.name] || 0 %></strong></td>
+            <% }); %>
+            <td class="count"><strong><%= Object.values(sprintTotalsObj).reduce((sum, val) => sum + val, 0) %></strong></td>
+          </tr>
+        </tbody>
+      </table>
+    <% } %>
+  </div>
+<% } %>
+</div>

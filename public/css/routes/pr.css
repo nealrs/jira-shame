@@ -1,0 +1,256 @@
+.error-message {
+  background: white;
+  border-radius: 8px;
+  padding: 40px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  text-align: center;
+  max-width: 600px;
+  margin: 40px auto;
+}
+
+.error-message h2 {
+  color: #DE350B;
+  margin-bottom: 20px;
+}
+
+.error-message p {
+  color: #6B778C;
+  line-height: 1.6;
+  margin-bottom: 15px;
+}
+
+.error-message code {
+  background: #F4F5F7;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: monospace;
+  color: #172B4D;
+}
+
+.error-message ul {
+  text-align: left;
+  display: inline-block;
+  margin: 20px 0;
+}
+
+.error-message li {
+  margin: 10px 0;
+  color: #6B778C;
+}
+
+.prs-list {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.pr {
+  display: grid;
+  grid-template-columns: 220px 1fr 150px 200px 1fr;
+  gap: 15px;
+  padding: 15px 0;
+  border-bottom: 1px solid #e0e0e0;
+  font-size: 13px;
+  font-weight: 400;
+  color: #172B4D;
+  align-items: start;
+}
+
+.pr:last-child {
+  border-bottom: none;
+}
+
+.pr-header {
+  display: grid;
+  grid-template-columns: 220px 1fr 150px 200px 1fr;
+  gap: 15px;
+  padding: 10px 0;
+  border-bottom: 2px solid #172B4D;
+  font-weight: bold;
+  color: #172B4D;
+  margin-bottom: 10px;
+}
+
+.pr-header .sortable {
+  cursor: pointer;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pr-header .sortable:hover {
+  color: #0052CC;
+}
+
+.pr-header .sort-indicator {
+  font-size: 11px;
+  color: #6B778C;
+}
+
+.pr-header .sort-asc .sort-indicator::after {
+  content: '▲';
+  color: #0052CC;
+}
+
+.pr-header .sort-desc .sort-indicator::after {
+  content: '▼';
+  color: #0052CC;
+}
+
+.pr-number {
+  font-weight: 500;
+}
+
+.pr-number a {
+  color: #0052CC;
+  text-decoration: none;
+}
+
+.pr-number a:hover {
+  text-decoration: underline;
+}
+
+.pr-number .repo-link {
+  color: #6B778C;
+  text-decoration: none;
+  margin-left: 6px;
+  font-weight: 500;
+}
+
+.pr-number .repo-link:hover {
+  color: #0052CC;
+  text-decoration: underline;
+}
+
+.gh-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.pr-title {
+  font-weight: 400;
+  font-size: 13px;
+}
+
+.pr-title a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.pr-title a:hover {
+  color: #0052CC;
+  text-decoration: underline;
+}
+
+.pr-repo {
+  font-size: 12px;
+  color: #6B778C;
+  word-break: break-word;
+}
+
+.pr-branch {
+  font-family: monospace;
+  font-size: 12px;
+  color: #6B778C;
+}
+
+.pr-author {
+  color: #172B4D;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.pr-dates {
+  font-size: 12px;
+  color: #6B778C;
+}
+
+.pr-reviewers {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: flex-start;
+}
+
+.reviewer-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  font-size: 12px;
+}
+
+.review-status {
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.review-status.approved {
+  background: #E3FCEF;
+  color: #006644;
+}
+
+.review-status.changes_requested {
+  background: #FFEBE6;
+  color: #BF2600;
+}
+
+.review-status.commented {
+  background: #DEEBFF;
+  color: #0052CC;
+}
+
+.review-status.requested {
+  background: #F4F5F7;
+  color: #6B778C;
+}
+
+.review-status.dismissed {
+  background: #F4F5F7;
+  color: #6B778C;
+  text-decoration: line-through;
+}
+
+.no-reviewers {
+  color: #FF5630;
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.draft-badge {
+  background: #F4F5F7;
+  color: #6B778C;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 500;
+  display: inline-block;
+  margin-left: 5px;
+}
+
+.ticket-number {
+  background: #0052CC;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 500;
+  display: inline-block;
+  margin-right: 5px;
+}
+
+.ticket-number-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.ticket-number-link:hover .ticket-number {
+  filter: brightness(1.1);
+  text-decoration: underline;
+}

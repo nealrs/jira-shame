@@ -1,0 +1,5 @@
+.container { max-width: 1400px; margin: 0 auto; }
+.ticket { display: grid; grid-template-columns: 120px 1fr 150px 150px 140px; gap: 20px; align-items: center; }
+.header-row { display: grid; grid-template-columns: 120px 1fr 150px 150px 140px; gap: 20px; }
+.duration { font-weight: 600; color: #172B4D; }
+.completed-date { font-size: 12px; color: #6B778C; }

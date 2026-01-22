@@ -1,6 +1,24 @@
 {
-  "watch": ["server.js", "templates", "public"],
-  "ext": "js,json,html,css",
-  "ignore": ["node_modules", ".git"],
+  "watch": [
+    "server.js",
+    "routes",
+    "services",
+    "utils",
+    "config",
+    "templates"
+  ],
+  "ext": "js,json,ejs",
+  "ignore": [
+    "node_modules",
+    "*.test.js",
+    "*.spec.js",
+    ".git",
+    "public/js/*.min.js",
+    "public/css/*.min.css"
+  ],
+  "exec": "node server.js",
+  "env": {
+    "NODE_ENV": "development"
+  },
   "delay": 500
 }

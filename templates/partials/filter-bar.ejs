@@ -1,0 +1,11 @@
+<div class="filter-bar">
+  <span class="filter-label all active" data-filter="all" data-assignee="all">All</span>
+  <% assignees.forEach(assignee => { %>
+    <% 
+      const escapedAssignee = assignee.replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+    %>
+    <span class="filter-label" 
+          data-filter="<%= escapedAssignee %>"
+          data-assignee="<%= escapedAssignee %>"><%= assignee %></span>
+  <% }); %>
+</div>

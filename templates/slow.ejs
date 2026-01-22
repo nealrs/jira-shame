@@ -1,0 +1,72 @@
+<div class="slow-page">
+<% if (Object.keys(grouped).length === 0 || allAssignees.length === 0) { %>
+  <h1>SLOW MOTION</h1>
+  <p style="text-align: center; color: #6B778C; margin-top: 40px;">No stagnant tickets found! 🎉</p>
+<% } else { %>
+  <h1>SLOW MOTION</h1>
+  <p style="text-align: center; color: #6B778C; margin-bottom: 30px; font-size: 14px;">
+    Tickets which have been in the same status for over 7 days
+  </p>
+
+  <%- include('partials/filter-bar', { assignees: allAssignees }) %>
+
+  <div class="status-columns">
+    <% TARGET_STATUSES.forEach(status => { %>
+      <% const list = grouped[status] || []; %>
+      <div class="status-group">
+        <div class="status-header">
+          <span><%= status %></span>
+          <span><%= list.length %> tickets</span>
+        </div>
+        <div class="status-content">
+          <% if (list.length === 0) { %>
+            <p style="color: #6B778C; text-align: center; padding: 20px;">No tickets</p>
+          <% } else { %>
+            <% list.forEach(i => { %>
+              <% 
+                // Use same escaping as filter-bar to ensure matching
+                const escapedAssignee = i.assignee.replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+              %>
+              <div class="ticket" data-assignee="<%= escapedAssignee %>">
+                <div class="days-badge <%= i.badgeClass || '' %>">
+                  <span class="days-count"><%= i.days %></span>
+                  <span class="days-label">days</span>
+                </div>
+                <div class="details">
+                  <div>
+                    <a href="<%= i.link %>" class="key" target="_blank"><%= i.key %></a>
+                    <span class="issue-type-badge <%= i.issueType %>"><%= i.issueType %></span>
+                    <span class="summary"><%= i.summary %></span>
+                  </div>
+                  <div class="meta">
+                    <span class="assignee"><%= i.assignee %></span>
+                  </div>
+                  <% if (i.prs && i.prs.length > 0) { %>
+                    <div class="pr-info">
+                      <% i.prs.forEach(pr => { %>
+                        <% 
+                          let reviewText = '';
+                          if (pr.needsReview) {
+                            reviewText = `<span class="pr-review-status needs-review">⚠ Needs review (${pr.completedReviewCount || 0}/${pr.reviewerCount} completed)</span>`;
+                          } else if (pr.approvedCount > 0) {
+                            reviewText = `<span class="pr-review-status approved">✓ ${pr.approvedCount} approved</span>`;
+                          } else if (pr.reviewerCount > 0 && pr.completedReviewCount === pr.reviewerCount) {
+                            reviewText = `<span class="pr-review-status approved">✓ All reviews complete</span>`;
+                          }
+                        %>
+                        <a href="<%= pr.url %>" class="pr-link" target="_blank">PR #<%= pr.number %></a>
+                        <span class="pr-status <%= pr.status %>"><%= pr.status %></span>
+                        <%- reviewText %>
+                      <% }); %>
+                    </div>
+                  <% } %>
+                </div>
+              </div>
+            <% }); %>
+          <% } %>
+        </div>
+      </div>
+    <% }); %>
+  </div>
+<% } %>
+</div>

@@ -1,0 +1,111 @@
+<div class="progress-page">
+<% if (processedIssues.length === 0) { %>
+  <h1>Progress</h1>
+  <%- include('partials/period-selector', { currentPeriod: period, basePath: '/progress' }) %>
+  <p style="color: #6B778C; margin-top: 40px;">No issues with changes found for <%= periodLabel %></p>
+<% } else { %>
+  <h1>PROGRESS REPORT</h1>
+  <%- include('partials/period-selector', { currentPeriod: period, basePath: '/progress' }) %>
+  <p class="summary"><%= processedIssues.length %> issue<%= processedIssues.length !== 1 ? 's' : '' %> with changes in <%= periodLabel %></p>
+  
+  <div class="tickets-list">
+    <div class="header-row">
+      <div class="sortable" data-sort-key="key" data-sort-type="text">Key <span class="sort-indicator"></span></div>
+      <div class="sortable" data-sort-key="summary" data-sort-type="text">Summary <span class="sort-indicator"></span></div>
+      <div class="sortable" data-sort-key="assignee" data-sort-type="text">Assignee <span class="sort-indicator"></span></div>
+      <div class="sortable" data-sort-key="reporter" data-sort-type="text">Reporter <span class="sort-indicator"></span></div>
+      <div>Changes</div>
+    </div>
+    <div class="tickets-container">
+      <% processedIssues.forEach(issue => { %>
+        <% 
+          // Build all changes in order: Status, Assignee, Priority, Type
+          const allChanges = [];
+          
+          // Format status changes - show ALL status transitions that happened during the period (newest first)
+          if (issue.statusTransitions && issue.statusTransitions.length > 0) {
+            // Sort transitions in reverse chronological order (newest first)
+            const sortedTransitions = [...issue.statusTransitions].sort((a, b) => b.date.valueOf() - a.date.valueOf());
+            sortedTransitions.forEach(transition => {
+              const dateStr = transition.dateFormatted || '';
+              const dateDisplay = dateStr ? ` <span style="color: #6B778C; font-size: 11px;">(${dateStr})</span>` : '';
+              allChanges.push(`<div class="change-item"><strong>Status:</strong> <span class="status-badge from">${transition.fromStatus}</span><span class="status-arrow">→</span><span class="status-badge to">${transition.toStatus}</span>${dateDisplay}</div>`);
+            });
+          } else if (issue.hasStatusChange) {
+            // Fallback: show overall change if no transitions tracked but status changed
+            allChanges.push(`<div class="change-item"><strong>Status:</strong> <span class="status-badge from">${issue.startStatus}</span><span class="status-arrow">→</span><span class="status-badge to">${issue.endStatus}</span></div>`);
+          }
+          
+          // Format assignee changes
+          if (issue.assigneeChanges && issue.assigneeChanges.length > 0) {
+            const sortedAssigneeChanges = [...issue.assigneeChanges].sort((a, b) => b.date.valueOf() - a.date.valueOf());
+            sortedAssigneeChanges.forEach(change => {
+              allChanges.push(`<div class="change-item"><strong>Assignee:</strong> <span class="assignee-change">${change.from || 'Unassigned'}</span> → <span class="assignee-change">${change.to || 'Unassigned'}</span></div>`);
+            });
+          } else if (issue.initialAssignee !== issue.currentAssignee) {
+            allChanges.push(`<div class="change-item"><strong>Assignee:</strong> <span class="assignee-change">${issue.initialAssignee}</span> → <span class="assignee-change">${issue.currentAssignee}</span></div>`);
+          }
+          
+          // Format priority changes
+          if (issue.priorityChanges && issue.priorityChanges.length > 0) {
+            const sortedPriorityChanges = [...issue.priorityChanges].sort((a, b) => b.date.valueOf() - a.date.valueOf());
+            sortedPriorityChanges.forEach(change => {
+              allChanges.push(`<div class="change-item"><strong>Priority:</strong> <span class="priority-change">${change.from || 'Unset'}</span> → <span class="priority-change">${change.to || 'Unset'}</span></div>`);
+            });
+          } else if (issue.initialPriority !== issue.currentPriority) {
+            allChanges.push(`<div class="change-item"><strong>Priority:</strong> <span class="priority-change">${issue.initialPriority}</span> → <span class="priority-change">${issue.currentPriority}</span></div>`);
+          }
+          
+          // Format issue type changes
+          if (issue.issueTypeChanges && issue.issueTypeChanges.length > 0) {
+            const sortedTypeChanges = [...issue.issueTypeChanges].sort((a, b) => b.date.valueOf() - a.date.valueOf());
+            sortedTypeChanges.forEach(change => {
+              allChanges.push(`<div class="change-item"><strong>Type:</strong> <span class="type-change">${change.from || 'Task'}</span> → <span class="type-change">${change.to || 'Task'}</span></div>`);
+            });
+          } else if (issue.hasIssueTypeChange) {
+            allChanges.push(`<div class="change-item"><strong>Type:</strong> <span class="type-change">${issue.initialIssueType}</span> → <span class="type-change">${issue.currentIssueType}</span></div>`);
+          }
+        %>
+        <% 
+          const toAttr = (value) => {
+            return String(value ?? '')
+              .replace(/\s+/g, ' ')
+              .trim()
+              .replace(/&/g, '&amp;')
+              .replace(/"/g, '&quot;')
+              .replace(/'/g, '&#39;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;');
+          };
+        %>
+        <div class="ticket"
+             data-key="<%= toAttr(issue.key) %>"
+             data-summary="<%= toAttr(issue.summary) %>"
+             data-assignee="<%= toAttr(issue.currentAssignee) %>"
+             data-reporter="<%= toAttr(issue.reporter) %>">
+          <div>
+            <a href="<%= issue.link %>" class="key" target="_blank"><%= issue.key %></a>
+          </div>
+          <div class="summary-text">
+            <span class="issue-type-badge <%= issue.issueType %>"><%= issue.issueType %></span>
+            <%= issue.summary %>
+          </div>
+          <div>
+            <span class="assignee"><%= issue.currentAssignee %></span>
+          </div>
+          <div>
+            <span class="reporter"><%= issue.reporter %></span>
+          </div>
+          <div class="changes-column">
+            <% if (allChanges.length > 0) { %>
+              <%- allChanges.join('') %>
+            <% } else { %>
+              <span style="color: #6B778C;">No changes</span>
+            <% } %>
+          </div>
+        </div>
+      <% }); %>
+    </div>
+  </div>
+<% } %>
+</div>
