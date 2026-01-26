@@ -22,11 +22,11 @@
         <tbody>
           <% currentSprint.assignees.forEach(assignee => { %>
             <tr>
-              <td class="assignee-name">
+              <td class="assignee-name" title="<%= (assignee.name || '').replace(/"/g, '&quot;') %>">
                 <% if (assignee.avatarUrl) { %>
                   <img src="<%= assignee.avatarUrl %>" alt="<%= assignee.name %>" class="assignee-avatar" loading="lazy">
                 <% } %>
-                <%= assignee.name %>
+                <%= (assignee.name || '').split(/\s+/)[0] || assignee.name %>
               </td>
               <% assignee.load.forEach(colLoad => { %>
                 <td class="count <%= colLoad.count === 0 ? 'zero' : '' %>"><%= colLoad.count %></td>
@@ -78,11 +78,11 @@
           %>
           <% upcomingLoad.forEach(assignee => { %>
             <tr>
-              <td class="assignee-name">
+              <td class="assignee-name" title="<%= (assignee.name || '').replace(/"/g, '&quot;') %>">
                 <% if (assignee.avatarUrl) { %>
                   <img src="<%= assignee.avatarUrl %>" alt="<%= assignee.name %>" class="assignee-avatar" loading="lazy">
                 <% } %>
-                <%= assignee.name %>
+                <%= (assignee.name || '').split(/\s+/)[0] || assignee.name %>
               </td>
               <% assignee.sprintLoads.forEach(sprintLoad => { %>
                 <td class="count <%= sprintLoad.count === 0 ? 'zero' : '' %>"><%= sprintLoad.count %></td>

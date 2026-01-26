@@ -1,8 +1,9 @@
 /**
- * Dark Mode Toggle
+ * Dark mode via system preference (prefers-color-scheme).
+ * No toggle: theme follows OS/browser setting.
+ * https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-color-scheme
  */
 
-const THEME_KEY = 'jira-shame-theme';
 const THEMES = {
   light: {
     '--bg-primary': '#f4f5f7',
@@ -15,7 +16,6 @@ const THEMES = {
     '--shadow': 'rgba(0,0,0,0.05)',
   },
   dark: {
-    // Solarized dark theme
     '--bg-primary': '#002b36',
     '--bg-secondary': '#073642',
     '--text-primary': '#839496',
@@ -31,86 +31,41 @@ const THEMES = {
 
 function applyTheme(theme) {
   const root = document.documentElement;
-  const themeColors = THEMES[theme];
-  
+  const themeColors = THEMES[theme] || THEMES.light;
   Object.entries(themeColors).forEach(([property, value]) => {
     root.style.setProperty(property, value);
   });
-  
   document.body.setAttribute('data-theme', theme);
-  localStorage.setItem(THEME_KEY, theme);
 }
 
-function getStoredTheme() {
-  return localStorage.getItem(THEME_KEY) || 'light';
-}
-
-function updateToggleButton() {
-  const toggle = document.getElementById('theme-toggle');
-  if (toggle) {
-    const currentTheme = document.body.getAttribute('data-theme') || 'light';
-    toggle.textContent = currentTheme === 'dark' ? '☀️' : '🌙';
-    toggle.setAttribute('aria-label', currentTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
-  }
+function getSystemTheme() {
+  if (typeof window === 'undefined' || !window.matchMedia) return 'light';
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
 function initDarkMode() {
-  const theme = getStoredTheme();
-  applyTheme(theme);
-  
-  // Create or update theme toggle button
-  const nav = document.querySelector('.nav-links');
-  if (nav) {
-    let toggle = document.getElementById('theme-toggle');
-    
-    if (!toggle) {
-      toggle = document.createElement('button');
-      toggle.id = 'theme-toggle';
-      toggle.setAttribute('aria-label', 'Toggle dark mode');
-      toggle.className = 'theme-toggle';
-      toggle.style.cssText = `
-        position: absolute;
-        right: 20px;
-        top: 50%;
-        transform: translateY(-50%);
-        background: var(--bg-secondary);
-        border: 1px solid var(--border);
-        border-radius: 4px;
-        padding: 8px 12px;
-        cursor: pointer;
-        font-size: 18px;
-        color: var(--text-primary);
-        transition: all 0.2s;
-      `;
-      toggle.onclick = () => {
-        const currentTheme = document.body.getAttribute('data-theme') || 'light';
-        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-        applyTheme(newTheme);
-        updateToggleButton();
-      };
-      nav.style.position = 'relative';
-      nav.appendChild(toggle);
-    }
-    
-    updateToggleButton();
+  applyTheme(getSystemTheme());
+}
+
+function init() {
+  initDarkMode();
+  const mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
+  if (mq && mq.addEventListener) {
+    mq.addEventListener('change', (e) => applyTheme(e.matches ? 'dark' : 'light'));
   }
 }
 
-// Initialize on load
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initDarkMode);
+  document.addEventListener('DOMContentLoaded', init);
 } else {
-  initDarkMode();
+  init();
 }
 
-// Re-initialize after HTMX swaps
-document.body.addEventListener('htmx:afterSwap', function() {
+document.body.addEventListener('htmx:afterSwap', function () {
   initDarkMode();
-  updateToggleButton();
 });
 
-// Make functions globally available
 window.darkMode = {
   apply: applyTheme,
-  getTheme: getStoredTheme,
+  getTheme: getSystemTheme,
 };

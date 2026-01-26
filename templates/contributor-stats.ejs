@@ -1,0 +1,44 @@
+<div class="contributor-stats-page">
+  <% if (typeof error !== 'undefined' && error) { %>
+    <h1>Sweat</h1>
+    <p class="error-message"><%= typeof errorMessage !== 'undefined' ? errorMessage : 'Unknown error' %></p>
+  <% } else { %>
+    <h1>Sweat</h1>
+    <p class="summary">One row per person, one column per sprint. Hover column headers for dates.</p>
+
+    <% if (sprints && sprints.length > 0 && assigneeRows && assigneeRows.length > 0) { %>
+      <div class="contributor-stats-table-wrap">
+        <table class="contributor-stats-table" id="contributor-stats-table" role="grid" aria-describedby="contributor-stats-caption">
+          <caption id="contributor-stats-caption" class="contributor-stats-caption">Cell format: <em>Assigned (Completed %)</em>. Dates in ET.</caption>
+          <thead>
+            <tr>
+              <th scope="col">Assignee</th>
+              <th scope="col" class="num" title="Overall completion rate across sprints">Avg</th>
+              <% (sprints || []).forEach(s => { %>
+                <th scope="col" class="num sprint-col" title="<%= s.dateRangeDisplay %>"><%= s.name %><% if (s.isActive) { %> <span class="contributor-stats-active-dot" title="Active">●</span><% } %></th>
+              <% }); %>
+            </tr>
+          </thead>
+          <tbody>
+            <% (assigneeRows || []).forEach(r => { %>
+              <tr>
+                <th scope="row" class="contributor-name-cell" title="<%= (r.assignee || '').replace(/"/g, '&quot;') %>">
+                  <% if (r.assigneeAvatarUrl) { %><img class="contributor-avatar" src="<%= r.assigneeAvatarUrl %>" alt="" width="20" height="20" loading="lazy"><% } %>
+                  <span class="contributor-name-text"><%= r.assigneeShort != null ? r.assigneeShort : (r.assignee || '').split(/\s+/)[0] || r.assignee %></span>
+                </th>
+                <td class="num"><%= r.avgPct != null ? r.avgPct : '—' %></td>
+                <% (r.cells || []).forEach(cell => { %>
+                  <td class="num"><%= cell.text %></td>
+                <% }); %>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+    <% } else if (sprints && sprints.length > 0) { %>
+      <p class="summary">No assignee data for these sprints (GreenHopper report returned no issues).</p>
+    <% } else { %>
+      <p class="summary">No sprint data available (GreenHopper sprint report may not be enabled for this board).</p>
+    <% } %>
+  <% } %>
+</div>

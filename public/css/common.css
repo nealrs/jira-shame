@@ -354,6 +354,53 @@ h1 {
 }
 
 /* Navigation */
+.nav-wrapper {
+  position: relative;
+}
+
+.nav-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  margin: 0;
+  background: var(--bg-secondary, white);
+  border: 1px solid var(--border, #DFE1E6);
+  border-radius: 6px;
+  cursor: pointer;
+  flex-direction: column;
+  gap: 5px;
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  color: var(--text-primary, #172B4D);
+}
+
+.nav-toggle-bar {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background: currentColor;
+  border-radius: 1px;
+  transition: transform 0.2s, opacity 0.2s;
+}
+
+.nav-wrapper.nav-open .nav-toggle-bar:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.nav-wrapper.nav-open .nav-toggle-bar:nth-child(2) {
+  opacity: 0;
+}
+
+.nav-wrapper.nav-open .nav-toggle-bar:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
 .nav-links { 
   background: var(--bg-secondary, white);
   border-bottom: 1px solid var(--border, #DFE1E6);
@@ -390,6 +437,69 @@ h1 {
   color: #0052CC;
   border-bottom-color: #0052CC;
   background: #F4F5F7;
+}
+
+@media (max-width: 768px) {
+  .nav-wrapper {
+    position: relative;
+    min-height: 40px;
+    padding: 8px 12px;
+    background: var(--bg-secondary, white);
+    border-bottom: 1px solid var(--border, #DFE1E6);
+    margin-bottom: 16px;
+    box-shadow: 0 1px 2px var(--shadow, rgba(0,0,0,0.06));
+  }
+
+  .nav-toggle {
+    display: flex;
+    width: 38px;
+    height: 38px;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .nav-toggle .nav-toggle-bar {
+    width: 18px;
+    height: 1.5px;
+  }
+
+  .nav-wrapper.nav-open .nav-toggle-bar:nth-child(1) {
+    transform: translateY(6px) rotate(45deg);
+  }
+
+  .nav-wrapper.nav-open .nav-toggle-bar:nth-child(3) {
+    transform: translateY(-6px) rotate(-45deg);
+  }
+
+  .nav-links {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin: 0;
+    padding: 0;
+    flex-direction: column;
+    box-shadow: 0 8px 16px var(--shadow, rgba(0,0,0,0.1));
+    border-bottom: none;
+    z-index: 9;
+  }
+
+  .nav-wrapper.nav-open .nav-links {
+    display: flex;
+  }
+
+  .nav-links a {
+    display: block;
+    padding: 12px 16px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border, #E8EAED);
+  }
+
+  .nav-links a:last-child {
+    border-bottom: none;
+  }
 }
 
 /* Badges and Labels - Improved contrast */
@@ -670,6 +780,7 @@ h1 {
     padding: 0 !important;
   }
   
+  .nav-wrapper,
   .nav-links,
   .period-selector,
   .filter-bar,

@@ -301,3 +301,152 @@
 .creep-change-none {
   color: #97A0AF;
 }
+
+/* Dark mode – match common.css load-table and card patterns */
+body[data-theme="dark"] .creep-page .summary,
+body[data-theme="dark"] .creep-datasource {
+  color: var(--text-muted);
+}
+
+body[data-theme="dark"] .creep-table {
+  background: var(--bg-secondary);
+  border-color: var(--border);
+}
+
+body[data-theme="dark"] .creep-table th,
+body[data-theme="dark"] .creep-table td {
+  border-bottom-color: var(--border);
+  color: var(--text-primary);
+}
+
+body[data-theme="dark"] .creep-table thead th {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+body[data-theme="dark"] .creep-table tbody tr:hover {
+  background: var(--hover-bg);
+}
+
+body[data-theme="dark"] .creep-table tbody tr.creep-details-row:hover {
+  background: var(--bg-secondary);
+}
+
+body[data-theme="dark"] .creep-row-active {
+  background: var(--hover-bg);
+}
+
+body[data-theme="dark"] .creep-row-active:hover {
+  background: var(--accent);
+  color: var(--text-primary);
+}
+
+body[data-theme="dark"] .creep-toggle {
+  border-color: var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+body[data-theme="dark"] .creep-toggle:hover {
+  background: var(--hover-bg);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+body[data-theme="dark"] .creep-details-row td {
+  border-bottom-color: var(--border);
+  background: var(--bg-primary);
+}
+
+body[data-theme="dark"] .creep-issues-heading {
+  color: var(--text-primary);
+}
+
+body[data-theme="dark"] .creep-issues-table th,
+body[data-theme="dark"] .creep-issues-table td {
+  border-bottom-color: var(--border);
+  color: var(--text-primary);
+}
+
+body[data-theme="dark"] .creep-issues-table th {
+  color: var(--text-muted);
+}
+
+body[data-theme="dark"] .creep-issues-table a {
+  color: var(--accent);
+}
+
+body[data-theme="dark"] .creep-issues-table a:hover {
+  color: var(--accent-hover);
+}
+
+body[data-theme="dark"] .creep-no-dates h2 {
+  color: var(--text-primary);
+}
+
+body[data-theme="dark"] .creep-no-dates ul {
+  color: var(--text-muted);
+}
+
+body[data-theme="dark"] .creep-page .error-message {
+  color: #dc322f;
+}
+
+body[data-theme="dark"] .creep-datasource-badge.creep-datasource-report {
+  background: var(--hover-bg);
+  color: var(--accent);
+}
+
+body[data-theme="dark"] .creep-datasource-badge.creep-datasource-changelog {
+  background: var(--bg-primary);
+  color: var(--text-muted);
+}
+
+body[data-theme="dark"] .creep-report-badge {
+  background: var(--hover-bg);
+  color: var(--accent);
+}
+
+body[data-theme="dark"] .creep-issues-table .status-pill {
+  background: var(--bg-primary);
+  color: var(--text-muted);
+}
+
+body[data-theme="dark"] .creep-issues-table .status-pill-done,
+body[data-theme="dark"] .creep-issues-table .status-pill-wont-do,
+body[data-theme="dark"] .creep-issues-table .status-pill-closed {
+  background: var(--hover-bg);
+  color: var(--accent);
+}
+
+body[data-theme="dark"] .creep-issues-table .status-pill-in-progress {
+  background: var(--hover-bg);
+  color: var(--accent);
+}
+
+body[data-theme="dark"] .creep-issues-table .status-pill-in-review {
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+}
+
+body[data-theme="dark"] .creep-issues-table .status-pill-to-do,
+body[data-theme="dark"] .creep-issues-table .status-pill-ready-for-development,
+body[data-theme="dark"] .creep-issues-table .status-pill-backlog,
+body[data-theme="dark"] .creep-issues-table .status-pill-open {
+  background: var(--bg-primary);
+  color: var(--text-muted);
+}
+
+body[data-theme="dark"] .creep-change-added {
+  background: var(--hover-bg);
+  color: var(--accent);
+}
+
+body[data-theme="dark"] .creep-change-removed {
+  background: rgba(220, 50, 47, 0.2);
+  color: #dc322f;
+}
+
+body[data-theme="dark"] .creep-change-none {
+  color: var(--text-muted);
+}

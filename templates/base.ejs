@@ -12,6 +12,21 @@
   <style id="dark-mode-styles"></style>
 </head>
 <body class="<%= typeof bodyClass !== 'undefined' ? bodyClass : '' %>" data-theme="light">
+  <script>
+    (function(){
+      var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var t = dark ? 'dark' : 'light';
+      document.body.setAttribute('data-theme', t);
+      if (dark) {
+        var s = document.documentElement.style;
+        s.setProperty('--bg-primary','#002b36'); s.setProperty('--bg-secondary','#073642');
+        s.setProperty('--text-primary','#839496'); s.setProperty('--text-secondary','#93a1a1');
+        s.setProperty('--text-muted','#657b83'); s.setProperty('--border','#586e75');
+        s.setProperty('--hover-bg','#0a4a5a'); s.setProperty('--shadow','rgba(0,0,0,0.5)');
+        s.setProperty('--accent','#268bd2'); s.setProperty('--accent-hover','#2aa198');
+      }
+    })();
+  </script>
   <%- include('nav') %>
   <div id="htmx-loading" class="htmx-indicator" role="status" aria-live="polite" aria-label="Loading content">
     <div class="loading-spinner" aria-hidden="true"></div>
@@ -149,6 +164,28 @@
     
     // Update on initial load
     updateActiveNav();
+
+    // Hamburger nav toggle (small viewports)
+    (function initNavToggle() {
+      var btn = document.getElementById('nav-toggle');
+      var menu = document.getElementById('nav-menu');
+      var wrapper = menu && menu.closest('.nav-wrapper');
+      if (!btn || !menu || !wrapper) return;
+      btn.addEventListener('click', function() {
+        var open = wrapper.classList.toggle('nav-open');
+        btn.setAttribute('aria-expanded', open);
+        btn.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+      });
+      menu.querySelectorAll('a').forEach(function(a) {
+        a.addEventListener('click', function() {
+          if (window.matchMedia('(max-width: 768px)').matches) {
+            wrapper.classList.remove('nav-open');
+            btn.setAttribute('aria-expanded', 'false');
+            btn.setAttribute('aria-label', 'Open menu');
+          }
+        });
+      });
+    })();
     
     // Update on htmx navigation
     document.body.addEventListener('htmx:afterSwap', function(event) {
@@ -185,12 +222,17 @@
         scriptTag.remove();
       }
       
-      // Remove any stylesheet links from response (no longer needed)
-      const stylesheetLink = tempDiv.querySelector('link[data-route-stylesheet]');
-      if (stylesheetLink) {
-        stylesheetLink.remove();
+      // Apply route stylesheet: id="route-stylesheet" or data-route-stylesheet or hx-swap-oob link to /css/routes/
+      const styleInResponse = tempDiv.querySelector('link#route-stylesheet, link[data-route-stylesheet], link[hx-swap-oob][href*="/css/routes/"]');
+      if (styleInResponse) {
+        const href = styleInResponse.getAttribute('href');
+        let routeLink = document.getElementById('route-stylesheet');
+        if (href && routeLink) {
+          routeLink.href = href;
+        }
+        styleInResponse.remove();
       }
-      
+
       // Update response to exclude processed elements
       if (tempDiv.innerHTML !== responseText) {
         Object.defineProperty(event.detail.xhr, 'responseText', {

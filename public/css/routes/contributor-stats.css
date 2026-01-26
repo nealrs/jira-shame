@@ -1,0 +1,275 @@
+/* Contributor stats – single pivot table: rows = assignees, cols = sprints */
+.contributor-stats-page .summary {
+  color: #6B778C;
+  margin-bottom: 20px;
+}
+
+.contributor-stats-table-wrap {
+  overflow-x: auto;
+  margin-top: 8px;
+  margin-bottom: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #E5E8EC;
+  width: 100%;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+.contributor-stats-caption {
+  caption-side: bottom;
+  margin-top: 12px;
+  padding: 0;
+  font-size: 0.85em;
+  color: #6B778C;
+  text-align: left;
+}
+
+.contributor-stats-table {
+  min-width: 700px;
+  width: max-content;
+  table-layout: auto;
+  border-collapse: collapse;
+  background: #fff;
+  border: 1px solid #DFE1E6;
+  border-radius: 6px;
+  font-size: 0.95em;
+}
+
+.contributor-stats-table th,
+.contributor-stats-table td {
+  padding: 12px 14px;
+  text-align: left;
+  border-bottom: 1px solid #E8EAED;
+  color: #172B4D;
+}
+
+.contributor-stats-table th {
+  border-right: 1px solid #E8EAED;
+}
+
+.contributor-stats-table td {
+  border-right: 1px solid #F0F2F5;
+}
+
+.contributor-stats-table th:last-child,
+.contributor-stats-table td:last-child {
+  border-right: none;
+}
+
+.contributor-stats-table thead th {
+  background: #F4F5F7;
+  font-weight: 600;
+  font-size: 0.8em;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  padding: 14px;
+}
+
+/* Sticky header cells: Assignee and Avg stay visible when scrolling horizontally */
+.contributor-stats-table thead th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  width: 10em;
+  min-width: 10em;
+  box-shadow: 4px 0 8px -2px rgba(0, 0, 0, 0.06);
+}
+
+.contributor-stats-table thead th:nth-child(2) {
+  position: sticky;
+  left: 10em;
+  z-index: 2;
+  width: 4.5em;
+  min-width: 4.5em;
+  box-shadow: 4px 0 8px -2px rgba(0, 0, 0, 0.06);
+}
+
+/* Stronger divider between Avg and first sprint column */
+.contributor-stats-table thead th:nth-child(3) {
+  border-left: 2px solid #C1C7D0;
+  padding-left: 16px;
+}
+
+.contributor-stats-table th.sprint-col {
+  text-align: right;
+  min-width: 6em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.contributor-stats-table tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  border-right: 2px solid #DFE1E6;
+  width: 10em;
+  min-width: 10em;
+  max-width: 10em;
+  font-weight: 500;
+  box-shadow: 4px 0 8px -2px rgba(0, 0, 0, 0.06);
+}
+
+.contributor-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  line-height: 1.35;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.contributor-name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.contributor-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.contributor-stats-table tbody tr:nth-child(even) th,
+.contributor-stats-table tbody tr:nth-child(even) td {
+  background: #F8F9FA;
+}
+
+.contributor-stats-table tbody tr:nth-child(odd) th {
+  background: #fff;
+}
+
+.contributor-stats-table tbody tr:nth-child(odd) td {
+  background: #fff;
+}
+
+.contributor-stats-table tbody tr:hover th {
+  background: rgba(0, 82, 204, 0.08) !important;
+}
+
+.contributor-stats-table tbody tr:hover td {
+  background: rgba(0, 82, 204, 0.08) !important;
+}
+
+.contributor-stats-table th.num,
+.contributor-stats-table td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Avg column: sticky so it stays fixed with Assignee when sprint columns scroll */
+.contributor-stats-table tbody td:nth-child(2) {
+  position: sticky;
+  left: 10em;
+  z-index: 1;
+  width: 4.5em;
+  min-width: 4.5em;
+  box-shadow: 4px 0 8px -2px rgba(0, 0, 0, 0.06);
+}
+
+.contributor-stats-table td:nth-child(n+3) {
+  min-width: 6em;
+}
+
+.contributor-stats-table tbody tr td:nth-child(3) {
+  border-left: 2px solid #C1C7D0;
+  padding-left: 16px;
+}
+
+.contributor-stats-table tbody tr:last-child td,
+.contributor-stats-table tbody tr:last-child th {
+  border-bottom: none;
+}
+
+.contributor-stats-active-dot {
+  color: #00875A;
+  font-size: 0.7em;
+  vertical-align: middle;
+}
+
+.contributor-stats-page .error-message {
+  color: #DE350B;
+  margin-top: 16px;
+}
+
+/* Dark mode – match common.css load-table stripes and borders */
+body[data-theme="dark"] .contributor-stats-page .summary {
+  color: var(--text-muted);
+}
+
+body[data-theme="dark"] .contributor-stats-table-wrap {
+  border-top-color: var(--border);
+}
+
+body[data-theme="dark"] .contributor-stats-caption {
+  color: var(--text-muted);
+}
+
+body[data-theme="dark"] .contributor-stats-table thead th:nth-child(3) {
+  border-left-color: var(--border);
+}
+
+body[data-theme="dark"] .contributor-stats-table tbody tr td:nth-child(3) {
+  border-left-color: var(--border);
+}
+
+body[data-theme="dark"] .contributor-stats-table {
+  background: var(--bg-secondary);
+  border-color: var(--border);
+}
+
+body[data-theme="dark"] .contributor-stats-table th,
+body[data-theme="dark"] .contributor-stats-table td {
+  border-bottom-color: var(--border);
+  border-right-color: var(--border);
+  color: var(--text-primary);
+}
+
+body[data-theme="dark"] .contributor-stats-table thead th {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+body[data-theme="dark"] .contributor-stats-table thead th:first-child,
+body[data-theme="dark"] .contributor-stats-table thead th:nth-child(2) {
+  box-shadow: 4px 0 8px -2px rgba(0, 0, 0, 0.25);
+}
+
+body[data-theme="dark"] .contributor-stats-table tbody th {
+  border-right-color: var(--border);
+  box-shadow: 4px 0 8px -2px rgba(0, 0, 0, 0.25);
+}
+
+body[data-theme="dark"] .contributor-stats-table tbody td:nth-child(2) {
+  box-shadow: 4px 0 8px -2px rgba(0, 0, 0, 0.25);
+}
+
+body[data-theme="dark"] .contributor-stats-table tbody tr:nth-child(even) th,
+body[data-theme="dark"] .contributor-stats-table tbody tr:nth-child(even) td {
+  background: var(--bg-primary);
+}
+
+body[data-theme="dark"] .contributor-stats-table tbody tr:nth-child(odd) th,
+body[data-theme="dark"] .contributor-stats-table tbody tr:nth-child(odd) td {
+  background: var(--bg-secondary);
+}
+
+body[data-theme="dark"] .contributor-stats-table tbody tr:hover th,
+body[data-theme="dark"] .contributor-stats-table tbody tr:hover td {
+  background: var(--hover-bg) !important;
+}
+
+body[data-theme="dark"] .contributor-name-cell {
+  color: var(--text-primary);
+}
+
+body[data-theme="dark"] .contributor-stats-active-dot {
+  color: var(--accent, #268bd2);
+}
+
+body[data-theme="dark"] .contributor-stats-page .error-message {
+  color: #dc322f;
+}

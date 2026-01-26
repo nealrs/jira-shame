@@ -31,6 +31,7 @@ const backlogRoutes = require('./routes/backlog');
 const prRoutes = require('./routes/pr');
 const loadRoutes = require('./routes/load');
 const creepRoutes = require('./routes/creep');
+const contributorStatsRoutes = require('./routes/contributor-stats');
 
 // Mount routes
 app.use('/', homeRoutes);
@@ -41,6 +42,7 @@ app.use('/', backlogRoutes);
 app.use('/', prRoutes);
 app.use('/', loadRoutes);
 app.use('/', creepRoutes);
+app.use('/', contributorStatsRoutes);
 
 // Start server
 app.listen(PORT, () => {

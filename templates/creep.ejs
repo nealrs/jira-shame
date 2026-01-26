@@ -70,9 +70,9 @@
                           <tr>
                             <td><a href="<%= issue.link %>" target="_blank" rel="noopener noreferrer"><%= issue.key %></a></td>
                             <td><span class="status-pill status-pill-<%= (issue.statusSlug || 'unknown').replace(/[^a-z0-9-]/g, '-') %>"><%= issue.status %></span></td>
-                            <td class="creep-assignee-cell">
-                              <% if (issue.assigneeAvatarUrl) { %><img class="creep-assignee-avatar" src="<%= issue.assigneeAvatarUrl %>" alt="" width="20" height="20"><% } %>
-                              <%= issue.assignee %>
+                            <td class="creep-assignee-cell" title="<%= (issue.assignee || '').replace(/"/g, '&quot;') %>">
+                              <% if (issue.assigneeAvatarUrl) { %><img class="creep-assignee-avatar" src="<%= issue.assigneeAvatarUrl %>" alt="" width="20" height="20" loading="lazy"><% } %>
+                              <%= (issue.assignee || '').split(/\s+/)[0] || issue.assignee %>
                             </td>
                             <td class="creep-sprint-change-cell">
                               <% if (issue.sprintChange === 'added') { %>
