@@ -23,6 +23,8 @@ Also, I wanted to see how good Cursor was at making my life easier. I wrote some
 
 **Load** (`/load`) - Shows ticket load per team member for the current sprint (by board column) and upcoming sprints
 
+**Sweat** (`/sweat`) - The report that should make you sweat. Developer productivity by sprint: assigned vs completed per person, one row per assignee and one column per sprint.
+
 ## How It Works
 
 ### Slow Motion
@@ -247,6 +249,7 @@ This project is licensed under the **GNU `Affero` General Public License v3.0 (o
 - `GET /progress` - Progress report showing issues that changed status in a selected time period
 - `GET /pr` - Pull Requests report showing all open pull requests with review status across GitHub organization
 - `GET /load` - Load report showing current sprint board-column load + future sprint load per assignee
+- `GET /sweat` - Sweat: developer productivity by sprint (assigned vs completed per person)
 
 ## Architecture
 
