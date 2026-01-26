@@ -1,0 +1,135 @@
+<div class="creep-page">
+  <% if (typeof error !== 'undefined' && error) { %>
+    <h1>Scope Creep</h1>
+    <p class="error-message"><%= typeof errorMessage !== 'undefined' ? errorMessage : 'Unknown error' %></p>
+  <% } else { %>
+    <h1>Scope Creep</h1>
+    <p class="summary">Scope 1 day after sprint start vs end of sprint. &quot;Started with&quot; = in sprint at end of day after sprint start. &quot;Ended with&quot; = in sprint at end. Dates use ET. Current sprint (if any) is listed first and shown as <strong>Active</strong>; then last 12 closed sprints.</p>
+    <% if (typeof reportApiUsedCount !== 'undefined' && totalSprintRows > 0) { %>
+      <p class="creep-datasource" role="status">
+        <% if (reportApiUsedCount === totalSprintRows) { %>
+          <span class="creep-datasource-badge creep-datasource-report">Jira Sprint Report API</span> used for all sprints.
+        <% } else if (reportApiUsedCount > 0) { %>
+          <span class="creep-datasource-badge creep-datasource-report">Report API</span> for <%= reportApiUsedCount %> sprint(s); <span class="creep-datasource-badge creep-datasource-changelog">Changelog</span> for the rest.
+        <% } else { %>
+          <span class="creep-datasource-badge creep-datasource-changelog">Changelog</span> (Report API not available on this Jira).
+        <% } %>
+      </p>
+    <% } %>
+
+    <% if (sprintRows && sprintRows.length > 0) { %>
+      <div class="creep-section">
+        <table class="creep-table" id="creep-table">
+          <thead>
+            <tr>
+              <th scope="col">Sprint</th>
+              <th scope="col">Dates</th>
+              <th scope="col" class="num" title="In sprint at end of day after sprint start">Started with</th>
+              <th scope="col" class="num">Ended with</th>
+              <th scope="col" class="num">Done</th>
+              <th scope="col" class="num" title="Done ÷ Ended with">Completed %</th>
+              <th scope="col" class="num" title="Added / Removed after start+1">Change</th>
+              <th scope="col" class="num" title="(Ended with − Started with) ÷ Started with">Creep</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% sprintRows.forEach(row => { %>
+              <tr class="<%= row.isActive ? 'creep-row-active' : '' %>">
+                <td class="creep-sprint-cell">
+                  <button type="button" class="creep-toggle" aria-expanded="false" data-sprint-id="<%= row.id %>" aria-controls="creep-details-<%= row.id %>" title="Expand to show issues">
+                    <span class="creep-chevron" aria-hidden="true">▶</span>
+                  </button>
+                  <strong><%= row.name %></strong>
+                  <% if (row.isActive) { %><span class="creep-active-badge" aria-label="Active sprint">Active</span><% } %>
+                  <% if (row.fromReportApi) { %><span class="creep-report-badge" title="Metrics from Jira Sprint Report API">Report</span><% } %>
+                </td>
+                <td><%= typeof row.dateRangeDisplay !== 'undefined' ? row.dateRangeDisplay : (row.startDate + ' – ' + row.endDate) %></td>
+                <td class="num"><%= row.startedWith %></td>
+                <td class="num"><%= row.endedWith %></td>
+                <td class="num"><%= row.done %></td>
+                <td class="num"><%= typeof row.completedPct !== 'undefined' ? (row.completedPct !== '—' ? row.completedPct + '%' : '—') : '—' %></td>
+                <td class="num creep-change-cell"><%= typeof row.changeDisplay !== 'undefined' ? row.changeDisplay : '—' %></td>
+                <td class="num creep-creep-cell"><%= typeof row.creepDisplay !== 'undefined' ? row.creepDisplay : '—' %></td>
+              </tr>
+              <tr class="creep-details-row" id="creep-details-<%= row.id %>" hidden>
+                <td colspan="8">
+                  <div class="creep-issues-list">
+                    <p class="creep-issues-heading">Issues in sprint (<%= (row.issues || []).length %>)</p>
+                    <table class="creep-issues-table">
+                      <thead>
+                        <tr>
+                          <th>Key</th>
+                          <th>Status</th>
+                          <th>Assignee</th>
+                          <th title="Added or removed from sprint after start+1">Creep</th>
+                          <th>Summary</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <% (row.issues || []).forEach(issue => { %>
+                          <tr>
+                            <td><a href="<%= issue.link %>" target="_blank" rel="noopener noreferrer"><%= issue.key %></a></td>
+                            <td><span class="status-pill status-pill-<%= (issue.statusSlug || 'unknown').replace(/[^a-z0-9-]/g, '-') %>"><%= issue.status %></span></td>
+                            <td class="creep-assignee-cell">
+                              <% if (issue.assigneeAvatarUrl) { %><img class="creep-assignee-avatar" src="<%= issue.assigneeAvatarUrl %>" alt="" width="20" height="20"><% } %>
+                              <%= issue.assignee %>
+                            </td>
+                            <td class="creep-sprint-change-cell">
+                              <% if (issue.sprintChange === 'added') { %>
+                                <span class="creep-change-pill creep-change-added" title="Added to sprint after start+1">Added</span>
+                              <% } else if (issue.sprintChange === 'removed') { %>
+                                <span class="creep-change-pill creep-change-removed" title="Removed from sprint after start+1">Removed</span>
+                              <% } else { %>
+                                <span class="creep-change-none" aria-hidden="true">—</span>
+                              <% } %>
+                            </td>
+                            <td class="creep-issue-summary"><%= issue.summary %></td>
+                          </tr>
+                        <% }); %>
+                      </tbody>
+                    </table>
+                  </div>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+        <script>
+          (function() {
+            var table = document.getElementById('creep-table');
+            if (!table) return;
+            table.addEventListener('click', function(e) {
+              var btn = e.target.closest('.creep-toggle');
+              if (!btn) return;
+              var id = btn.getAttribute('data-sprint-id');
+              var row = id && document.getElementById('creep-details-' + id);
+              if (!row) return;
+              var open = row.hidden;
+              row.hidden = !open;
+              btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+              btn.setAttribute('title', open ? 'Collapse' : 'Expand to show issues');
+              var chev = btn.querySelector('.creep-chevron');
+              if (chev) chev.textContent = open ? '▼' : '▶';
+            });
+          })();
+        </script>
+      </div>
+    <% } %>
+
+    <% if (noDateRows && noDateRows.length > 0) { %>
+      <div class="creep-section creep-no-dates">
+        <h2>Sprints without dates</h2>
+        <p class="summary">These sprints have no start/end dates; scope metrics are omitted.</p>
+        <ul>
+          <% noDateRows.forEach(row => { %>
+            <li><%= row.name %> (id: <%= row.id %>)</li>
+          <% }); %>
+        </ul>
+      </div>
+    <% } %>
+
+    <% if ((!sprintRows || sprintRows.length === 0) && (!noDateRows || noDateRows.length === 0)) { %>
+      <p class="summary">No closed sprints found for this board.</p>
+    <% } %>
+  <% } %>
+</div>

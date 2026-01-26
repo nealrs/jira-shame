@@ -38,6 +38,13 @@
 
   <div class="route-item">
     <div class="route-header">
+      <a href="/creep" class="route-title" hx-get="/creep" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true" hx-indicator="body">Scope Creep</a>
+    </div>
+    <p class="route-description">Sprint scope change: started-with vs ended-with, creep %, and which issues were added or removed during the sprint.</p>
+  </div>
+
+  <div class="route-item">
+    <div class="route-header">
       <a href="/pr" class="route-title" hx-get="/pr" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true" hx-indicator="body">Pull Requests</a>
     </div>
     <p class="route-description">Open pull requests across GitHub org with review status and reviewer information.</p>

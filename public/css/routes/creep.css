@@ -1,0 +1,303 @@
+/* Scope Creep page */
+.creep-page .summary {
+  color: #6B778C;
+  margin-bottom: 24px;
+}
+
+.creep-section {
+  margin-bottom: 32px;
+}
+
+.creep-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border: 1px solid #DFE1E6;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.creep-table th,
+.creep-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid #DFE1E6;
+  color: #172B4D;
+}
+
+.creep-table thead th {
+  background: #F4F5F7;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.8em;
+  letter-spacing: 0.02em;
+}
+
+.creep-table th.num,
+.creep-table td.num {
+  text-align: right;
+}
+
+.creep-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.creep-table tbody tr:hover {
+  background: rgba(0, 82, 204, 0.04);
+}
+
+.creep-table tbody tr.creep-details-row:hover {
+  background: #fff;
+}
+
+.creep-row-active {
+  background: #E3FCEF;
+}
+
+.creep-row-active:hover {
+  background: #ABF5D1;
+}
+
+.creep-active-badge {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 2px 8px;
+  font-size: 0.7em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #fff;
+  background: #00875A;
+  border-radius: 4px;
+  vertical-align: middle;
+}
+
+.creep-sprint-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.creep-toggle {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #DFE1E6;
+  border-radius: 4px;
+  background: #fff;
+  color: #172B4D;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7em;
+  line-height: 1;
+}
+
+.creep-toggle:hover {
+  background: rgba(0, 82, 204, 0.08);
+  border-color: #0052CC;
+}
+
+.creep-chevron {
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+
+.creep-details-row td {
+  padding: 0;
+  vertical-align: top;
+  border-bottom: 1px solid #DFE1E6;
+  background: #FAFBFC;
+}
+
+.creep-issues-list {
+  padding: 16px 20px 20px 44px;
+}
+
+.creep-issues-heading {
+  margin: 0 0 12px 0;
+  font-size: 0.9em;
+  font-weight: 600;
+  color: #172B4D;
+}
+
+.creep-issues-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9em;
+}
+
+.creep-issues-table th,
+.creep-issues-table td {
+  padding: 6px 12px 6px 0;
+  text-align: left;
+  border-bottom: 1px solid #DFE1E6;
+  color: #172B4D;
+}
+
+.creep-issues-table th {
+  font-weight: 600;
+  color: #6B778C;
+  font-size: 0.85em;
+}
+
+.creep-issues-table a {
+  color: #0052CC;
+  text-decoration: none;
+}
+
+.creep-issues-table a:hover {
+  text-decoration: underline;
+}
+
+.creep-issue-summary {
+  max-width: 40em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.creep-assignee-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.creep-assignee-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.creep-change-cell,
+.creep-creep-cell {
+  font-variant-numeric: tabular-nums;
+}
+
+.creep-no-dates h2 {
+  font-size: 1.1em;
+  margin-bottom: 8px;
+  color: #172B4D;
+}
+
+.creep-no-dates ul {
+  margin: 0;
+  padding-left: 24px;
+  color: #6B778C;
+}
+
+.creep-page .error-message {
+  color: #DE350B;
+  margin-top: 16px;
+}
+
+.creep-datasource {
+  margin: 0 0 20px 0;
+  font-size: 0.9em;
+  color: #6B778C;
+}
+
+.creep-datasource-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.85em;
+  font-weight: 600;
+}
+
+.creep-datasource-report {
+  background: #E3FCEF;
+  color: #006644;
+}
+
+.creep-datasource-changelog {
+  background: #F4F5F7;
+  color: #6B778C;
+}
+
+.creep-report-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 0.65em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #006644;
+  background: #E3FCEF;
+  border-radius: 3px;
+  vertical-align: middle;
+}
+
+/* Status pills – done and wont-do use same green */
+.creep-issues-table .status-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  background: #F4F5F7;
+  color: #6B778C;
+}
+
+.creep-issues-table .status-pill-done,
+.creep-issues-table .status-pill-wont-do {
+  background: #E3FCEF;
+  color: #006644;
+}
+
+.creep-issues-table .status-pill-in-progress {
+  background: #DEEBFF;
+  color: #0052CC;
+}
+
+.creep-issues-table .status-pill-in-review {
+  background: #EAE6FF;
+  color: #403294;
+}
+
+.creep-issues-table .status-pill-to-do,
+.creep-issues-table .status-pill-ready-for-development,
+.creep-issues-table .status-pill-backlog,
+.creep-issues-table .status-pill-open {
+  background: #F4F5F7;
+  color: #6B778C;
+}
+
+.creep-issues-table .status-pill-closed {
+  background: #E3FCEF;
+  color: #006644;
+}
+
+/* Sprint change pills (added/removed during sprint) */
+.creep-sprint-change-cell {
+  white-space: nowrap;
+}
+
+.creep-change-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.creep-change-added {
+  background: #E3FCEF;
+  color: #006644;
+}
+
+.creep-change-removed {
+  background: #FFEBE6;
+  color: #BF2600;
+}
+
+.creep-change-none {
+  color: #97A0AF;
+}

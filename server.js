@@ -30,6 +30,7 @@ const progressRoutes = require('./routes/progress');
 const backlogRoutes = require('./routes/backlog');
 const prRoutes = require('./routes/pr');
 const loadRoutes = require('./routes/load');
+const creepRoutes = require('./routes/creep');
 
 // Mount routes
 app.use('/', homeRoutes);
@@ -39,11 +40,11 @@ app.use('/', progressRoutes);
 app.use('/', backlogRoutes);
 app.use('/', prRoutes);
 app.use('/', loadRoutes);
+app.use('/', creepRoutes);
 
 // Start server
-// Bind to 0.0.0.0 to allow connections from outside the container (Docker)
-app.listen(PORT, '0.0.0.0', () => {
-  logger.info(`Server running on http://0.0.0.0:${PORT}`);
+app.listen(PORT, () => {
+  logger.info(`Server running on http://localhost:${PORT}`);
   if (config.server.debug) {
     logger.info('Debug logging enabled');
   }
