@@ -39,6 +39,9 @@
                     <span class="summary"><%= i.summary %></span>
                   </div>
                   <div class="meta">
+                    <% if (typeof i.sprintCount === 'number') { %>
+                    <span class="sprints-pill"><%= i.sprintCount %> sprint<%= i.sprintCount !== 1 ? 's' : '' %></span>
+                    <% } %>
                     <span class="assignee"><%= i.assignee %></span>
                   </div>
                   <% if (i.prs && i.prs.length > 0) { %>

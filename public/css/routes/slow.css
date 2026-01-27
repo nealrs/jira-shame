@@ -17,7 +17,24 @@
 .days-label { font-size: 9px; text-transform: uppercase; margin-top: 2px; }
 .details { flex-grow: 1; }
 .summary { color: #172B4D; }
-.meta { font-size: 12px; color: #6B778C; margin-top: 4px; }
+.meta { font-size: 12px; color: #6B778C; margin-top: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sprints-pill {
+  display: inline-block;
+  background: #DEEBFF;
+  color: #0052CC;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  border: 1px solid rgba(0, 82, 204, 0.25);
+}
+.details .assignee { margin-left: 0; }
+body[data-theme="dark"] .sprints-pill {
+  background: rgba(38, 139, 210, 0.25);
+  color: var(--accent, #268bd2);
+  border-color: var(--border, #586e75);
+}
 .pr-info { margin-top: 6px; }
 .pr-link { display: inline-block; background: #E3FCEF; color: #006644; padding: 2px 8px; border-radius: 4px; margin-right: 6px; text-decoration: none; font-size: 11px; }
 .pr-link:hover { background: #ABF5D1; }

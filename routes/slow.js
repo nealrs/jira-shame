@@ -84,43 +84,56 @@ ${html}`;
       }
     }
 
-    // 4. Bulk fetch details using new /rest/api/3/search/jql endpoint
+    // 4. Resolve Sprint field id (changelog uses fieldId, often customfield_10020)
+    let sprintFieldId = null;
+    try {
+      const fieldsResponse = await jiraClient.get('/rest/api/3/field');
+      const fields = Array.isArray(fieldsResponse.data) ? fieldsResponse.data : (fieldsResponse.data?.values || []);
+      const sprintField = fields.find(f => (f.name || '').toLowerCase() === 'sprint');
+      if (sprintField && sprintField.id) sprintFieldId = sprintField.id;
+    } catch (e) {
+      debugLog('Could not resolve Sprint field id, changelog sprint detection may miss customfield id');
+    }
+
+    // 5. Bulk fetch details (include sprint for current-sprint count)
     const issueKeys = issues.map(i => i.key);
-    
-    // First, get basic issue data with the new endpoint
     const searchResponse = await jiraClient.post(`/rest/api/3/search/jql`, {
-        jql: `key in (${issueKeys.join(',')})`,
+      jql: `key in (${issueKeys.join(',')})`,
       maxResults: 100,
-      fields: ['summary', 'status', 'assignee', 'created', 'issuetype']
+      fields: ['summary', 'status', 'assignee', 'created', 'issuetype', 'sprint']
     });
-    
-    // Then fetch changelog, remote links (for PR info), and development info for each issue
+
+    // 6. Fetch full changelog (paginate), remote links, and dev info per issue
     const issuesWithChangelog = await Promise.all(
       searchResponse.data.issues.map(async (issue) => {
         try {
-          const [changelogResponse, remotelinksResponse, devInfoResponse] = await Promise.all([
-            jiraClient.get(`/rest/api/3/issue/${issue.key}/changelog`).catch(() => ({ data: { values: [] } })),
+          const changelogValues = [];
+          let startAt = 0;
+          const pageSize = 100;
+          let total = 0;
+          let page = [];
+          do {
+            const changelogResponse = await jiraClient.get(`/rest/api/3/issue/${issue.key}/changelog`, {
+              params: { startAt, maxResults: pageSize }
+            }).catch(() => ({ data: { values: [], total: 0 } }));
+            page = changelogResponse.data.values || [];
+            total = changelogResponse.data.total != null ? changelogResponse.data.total : (changelogValues.length + page.length);
+            changelogValues.push(...page);
+            startAt += page.length;
+          } while (startAt < total && page.length > 0);
+
+          const [remotelinksResponse, devInfoResponse] = await Promise.all([
             jiraClient.get(`/rest/api/3/issue/${issue.key}/remotelink`).catch(() => ({ data: [] })),
-            // Try development info endpoint - may not be available in all Jira instances
             jiraClient.get(`/rest/dev-status/latest/issue/detail`, {
-              params: { 
-                issueId: issue.id || issue.key, 
-                applicationType: 'GitHub', 
-                dataType: 'pullrequest' 
-              }
+              params: { issueId: issue.id || issue.key, applicationType: 'GitHub', dataType: 'pullrequest' }
             }).catch(() => ({ data: { detail: [] } }))
           ]);
-          
-          // The changelog endpoint returns { values: [...] } not { histories: [...] }
-          const histories = changelogResponse.data.values || [];
-          const remotelinks = remotelinksResponse.data || [];
-          const devInfo = devInfoResponse.data?.detail || [];
-          
+
           return {
             ...issue,
-            changelog: { histories: histories },
-            remotelinks: remotelinks,
-            devInfo: devInfo
+            changelog: { histories: changelogValues },
+            remotelinks: remotelinksResponse.data || [],
+            devInfo: devInfoResponse.data?.detail || []
           };
         } catch (error) {
           return {
@@ -136,33 +149,68 @@ ${html}`;
     // Replace the issues array with the one that includes changelog and remotelinks
     searchResponse.data.issues = issuesWithChangelog;
 
-    // 5. Process Issues
+    // 7. Process Issues
     const processedIssues = searchResponse.data.issues.map(issue => {
       const currentStatus = issue.fields.status.name;
-      // Safely access changelog.histories with a fallback
       const history = issue.changelog?.histories || [];
-      
-      // Calculate TOTAL time spent in current status by summing all periods
-      // Only count time when ticket was actually in the current status, not from ticket creation
-      
-      // Build a timeline of all status transitions from changelog
       const statusTransitions = [];
 
-      if (history && Array.isArray(history)) {
+      // Distinct sprint count: current sprint + every sprint ever in changelog
+      const sprintIdsSeen = new Set();
+      const isSprintItem = (item) => {
+        if (!item || !item.field) return false;
+        const f = String(item.field).toLowerCase();
+        const fid = (item.fieldId && String(item.fieldId)) || '';
+        return f === 'sprint' || (sprintFieldId && fid === sprintFieldId);
+      };
+      const addSprintValue = (v) => {
+        if (v == null) return;
+        const s = String(v).trim();
+        if (s !== '') sprintIdsSeen.add(s);
+      };
+
+      // Include current sprint(s) from issue fields
+      const sprintField = issue.fields?.sprint;
+      if (sprintField) {
+        if (Array.isArray(sprintField)) {
+          sprintField.forEach(s => {
+            if (s && (s.id != null || s.name != null)) {
+              addSprintValue(s.id != null ? String(s.id) : s.name);
+            }
+          });
+        } else if (typeof sprintField === 'object' && sprintField !== null) {
+          addSprintValue(sprintField.id != null ? String(sprintField.id) : sprintField.name);
+        } else {
+          addSprintValue(sprintField);
+        }
+      }
+
+      // From changelog: every sprint ever added/removed (prefer id over name to avoid double-count)
+      if (Array.isArray(history)) {
         history.forEach(record => {
-          if (record.items && Array.isArray(record.items)) {
-            record.items.forEach(item => {
-              if (item.field === 'status') {
-                statusTransitions.push({
-                  date: moment(record.created),
-                  fromStatus: item.fromString,
-                  toStatus: item.toString
-                });
-              }
-            });
-          }
+          if (!record.items || !Array.isArray(record.items)) return;
+          record.items.forEach(item => {
+            if (item.field === 'status') {
+              statusTransitions.push({
+                date: moment(record.created),
+                fromStatus: item.fromString,
+                toStatus: item.toString
+              });
+            }
+            if (!isSprintItem(item)) return;
+            const to = item.to; const from = item.from;
+            const toString = item.toString; const fromString = item.fromString;
+            const looksLikeId = (v) => v != null && /^\d+$/.test(String(v).trim());
+            if (looksLikeId(to)) addSprintValue(String(to).trim());
+            if (looksLikeId(from)) addSprintValue(String(from).trim());
+            if (!looksLikeId(to) && toString) addSprintValue(toString);
+            if (!looksLikeId(from) && fromString) addSprintValue(fromString);
+          });
         });
       }
+
+      const sprintCount = sprintIdsSeen.size;
+
       
       // Sort transitions by date (oldest first)
       statusTransitions.sort((a, b) => a.date.valueOf() - b.date.valueOf());
@@ -293,6 +341,7 @@ ${html}`;
         status: currentStatus,
         assignee: issue.fields.assignee ? issue.fields.assignee.displayName : 'Unassigned',
         days: daysStuck,
+        sprintCount,
         link: `https://${config.jira.host}/browse/${issue.key}`,
         prs: prs,
         issueType: issueTypeLower
