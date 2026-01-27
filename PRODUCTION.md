@@ -32,6 +32,7 @@ This guide covers deploying Jira Shame to production environments.
    ```bash
    docker-compose -f docker-compose.prod.yaml up -d
    ```
+   By default the app is published on **port 1337** (same as dev). To use a different host port, run `PORT=3000 docker-compose -f docker-compose.prod.yaml up -d` (or set `PORT` in `.env`).
 
 ### Option 2: Direct Node.js
 

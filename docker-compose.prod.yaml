@@ -2,7 +2,8 @@ services:
   jira-shame:
     build: .
     ports:
-      - "${PORT:-3000}:3000"
+      # Use 1337 locally to match dev; set PORT=3000 (or 80) when deploying behind a proxy
+      - "${PORT:-1337}:3000"
     environment:
       - JIRA_HOST=${JIRA_HOST}
       - JIRA_EMAIL=${JIRA_EMAIL}
