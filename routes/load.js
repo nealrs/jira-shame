@@ -1,10 +1,11 @@
 const express = require('express');
-const moment = require('moment');
+const moment = require('moment-timezone');
 const router = express.Router();
-const { isHtmxRequest, debugLog, debugError, BOARD_ID, jiraClient, config } = require('./_helpers');
+const { isHtmxRequest, debugLog, debugError, BOARD_ID, jiraClient, config, getTz } = require('./_helpers');
 
 router.get('/load', async (req, res) => {
   try {
+    const tz = getTz();
     // 1. Get board configuration to get columns (statuses) and project key
     let boardColumns = [];
     let projectKey = null;
@@ -348,21 +349,21 @@ ${html}`;
       });
       
       const allSprints = sprintsResponse.data.values || [];
-      const now = moment();
+      const now = moment().tz(tz);
       
       // Identify future sprints (not active, start date in future or no start date)
       const futureSprintIds = new Set();
       allSprints.forEach(sprint => {
         let isActive = false;
         if (sprint.startDate && sprint.endDate) {
-          const startDate = moment(sprint.startDate);
-          const endDate = moment(sprint.endDate);
+          const startDate = moment.tz(sprint.startDate, tz);
+          const endDate = moment.tz(sprint.endDate, tz);
           isActive = now.isBetween(startDate, endDate, null, '[]');
         }
         
         // Future sprint: not active and (no start date OR start date in future)
         if (!isActive) {
-          if (!sprint.startDate || moment(sprint.startDate).isAfter(now)) {
+          if (!sprint.startDate || moment.tz(sprint.startDate, tz).isAfter(now)) {
             futureSprintIds.add(sprint.id);
             upcomingSprintsMap.set(sprint.id, sprint);
           }
@@ -402,7 +403,7 @@ ${html}`;
       // Sort upcoming sprints by end date (sprints with no dates go at the end)
       upcomingSprints.sort((a, b) => {
         if (a.endDate && b.endDate) {
-          return moment(a.endDate).valueOf() - moment(b.endDate).valueOf();
+          return moment.tz(a.endDate, tz).valueOf() - moment.tz(b.endDate, tz).valueOf();
         }
         if (a.endDate && !b.endDate) {
           return -1;
@@ -665,8 +666,8 @@ ${html}`;
     // Build current sprint load table
     let currentSprintHTML = '';
     if (currentSprint) {
-      const startDate = currentSprint.startDate ? moment(currentSprint.startDate).format('MMM D, YYYY') : 'Not set';
-      const endDate = currentSprint.endDate ? moment(currentSprint.endDate).format('MMM D, YYYY') : 'Not set';
+      const startDate = currentSprint.startDate ? moment.tz(currentSprint.startDate, tz).format('MMM D, YYYY') : 'Not set';
+      const endDate = currentSprint.endDate ? moment.tz(currentSprint.endDate, tz).format('MMM D, YYYY') : 'Not set';
       
       // Sort assignees with "Unassigned" at the end
       const currentSprintAssigneesList = Array.from(currentSprintAssignees).sort((a, b) => {
@@ -826,8 +827,8 @@ ${html}`;
     // Format data for template
     const currentSprintData = currentSprint ? {
       name: currentSprint.name,
-      startDate: currentSprint.startDate ? moment(currentSprint.startDate).format('MMM D, YYYY') : null,
-      endDate: currentSprint.endDate ? moment(currentSprint.endDate).format('MMM D, YYYY') : null,
+      startDate: currentSprint.startDate ? moment.tz(currentSprint.startDate, tz).format('MMM D, YYYY') : null,
+      endDate: currentSprint.endDate ? moment.tz(currentSprint.endDate, tz).format('MMM D, YYYY') : null,
       assignees: Array.from(currentSprintAssignees).sort((a, b) => {
         if (a === 'Unassigned') return 1;
         if (b === 'Unassigned') return -1;
@@ -852,8 +853,8 @@ ${html}`;
     
     const upcomingSprintsData = upcomingSprints.map(sprint => ({
       name: sprint.name,
-      startDate: sprint.startDate ? moment(sprint.startDate).format('MMM D, YYYY') : null,
-      endDate: sprint.endDate ? moment(sprint.endDate).format('MMM D, YYYY') : null
+      startDate: sprint.startDate ? moment.tz(sprint.startDate, tz).format('MMM D, YYYY') : null,
+      endDate: sprint.endDate ? moment.tz(sprint.endDate, tz).format('MMM D, YYYY') : null
     }));
     
     const upcomingLoadData = Array.from(currentSprintAssignees).sort((a, b) => {

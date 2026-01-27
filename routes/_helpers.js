@@ -1,6 +1,10 @@
 const logger = require('../utils/logger');
 const config = require('../config');
 
+function getTz() {
+  return config.timezone || process.env.TZ || 'America/New_York';
+}
+
 // Helper to detect htmx requests
 function isHtmxRequest(req) {
   return req.headers['hx-request'] === 'true';
@@ -61,5 +65,6 @@ module.exports = {
   jiraClient,
   githubClient,
   config,
+  getTz,
   logger
 };

@@ -1,10 +1,11 @@
 const express = require('express');
-const moment = require('moment');
+const moment = require('moment-timezone');
 const router = express.Router();
-const { isHtmxRequest, debugLog, debugError, TARGET_STATUSES, BOARD_ID, jiraClient, config } = require('./_helpers');
+const { isHtmxRequest, debugLog, debugError, TARGET_STATUSES, BOARD_ID, jiraClient, config, getTz } = require('./_helpers');
 
 router.get('/slow', async (req, res) => {
   try {
+    const tz = getTz();
     // 1. Get project key from board configuration
     let projectKey = null;
     try {
@@ -168,7 +169,7 @@ ${html}`;
       
       // Calculate total days in current status
       let totalDaysInCurrentStatus = 0;
-      const now = moment();
+      const now = moment().tz(tz);
       let enteredCurrentStatusAt = null;
       
       // Check if ticket was created in current status (no transitions, or first transition is away from current)
@@ -315,8 +316,8 @@ ${html}`;
       if (sprintsResponse.data.values && sprintsResponse.data.values.length > 0) {
         const currentSprint = sprintsResponse.data.values[0];
         if (currentSprint.startDate && currentSprint.endDate) {
-          const start = moment(currentSprint.startDate);
-          const end = moment(currentSprint.endDate);
+          const start = moment.tz(currentSprint.startDate, tz);
+          const end = moment.tz(currentSprint.endDate, tz);
           sprintDurationDays = end.diff(start, 'days');
         }
       }

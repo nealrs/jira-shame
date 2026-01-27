@@ -147,6 +147,7 @@ DEBUG=true
 - `PORT`: Port to run the server on (defaults to `3000`)
 - `NODE_ENV`: Defaults to whatever your runtime provides; used to default debug logging (debug is on unless `NODE_ENV=production`)
 - `DEBUG`: Set to `true` to enable debug logging; set to `false` to silence debug logs
+- `TZ`: Timezone for sprint dates and reports (e.g. `America/New_York`). Defaults to `America/New_York`.
 
 #### Docker Compose note: `JIRA_BOARD_ID`
 

@@ -1,7 +1,7 @@
 const express = require('express');
-const moment = require('moment');
+const moment = require('moment-timezone');
 const router = express.Router();
-const { isHtmxRequest, debugLog, debugError, BOARD_ID, jiraClient, config } = require('./_helpers');
+const { isHtmxRequest, debugLog, debugError, BOARD_ID, jiraClient, config, getTz } = require('./_helpers');
 
 router.get('/progress', async (req, res) => {
   try {
@@ -39,11 +39,12 @@ router.get('/progress', async (req, res) => {
     // Calculate date ranges based on period
     let startDate, endDate, periodLabel;
     let useSprintFilter = false;
-      const now = moment();
+    const tz = getTz();
+    const now = moment().tz(tz);
       
     if (days && days > 0) {
-      startDate = moment().subtract(days - 1, 'days').startOf('day');
-      endDate = moment().endOf('day');
+      startDate = moment.tz(tz).subtract(days - 1, 'days').startOf('day');
+      endDate = moment.tz(tz).endOf('day');
       periodLabel = `Last ${days} Days`;
     } else {
       switch (period) {
@@ -52,42 +53,42 @@ router.get('/progress', async (req, res) => {
           useSprintFilter = true;
           periodLabel = 'This Sprint';
           // Still set dates to a wide range for the updated filter
-          startDate = moment().subtract(1, 'year').startOf('day');
-          endDate = moment().endOf('day');
+          startDate = moment.tz(tz).subtract(1, 'year').startOf('day');
+          endDate = moment.tz(tz).endOf('day');
           break;
         case 'today':
-          startDate = moment().startOf('day');
-          endDate = moment().endOf('day');
+          startDate = moment.tz(tz).startOf('day');
+          endDate = moment.tz(tz).endOf('day');
           periodLabel = 'Today';
           break;
         case 'yesterday':
-          startDate = moment().subtract(1, 'day').startOf('day');
-          endDate = moment().subtract(1, 'day').endOf('day');
+          startDate = moment.tz(tz).subtract(1, 'day').startOf('day');
+          endDate = moment.tz(tz).subtract(1, 'day').endOf('day');
           periodLabel = 'Yesterday';
           break;
         case 'this-week':
-          startDate = moment().startOf('week');
-          endDate = moment().endOf('week');
+          startDate = moment.tz(tz).startOf('week');
+          endDate = moment.tz(tz).endOf('week');
           periodLabel = 'This Week';
           break;
         case 'last-7-days':
-          startDate = moment().subtract(6, 'days').startOf('day');
-          endDate = moment().endOf('day');
+          startDate = moment.tz(tz).subtract(6, 'days').startOf('day');
+          endDate = moment.tz(tz).endOf('day');
           periodLabel = 'Last 7 Days';
           break;
         case 'this-month':
-          startDate = moment().startOf('month');
-          endDate = moment().endOf('month');
+          startDate = moment.tz(tz).startOf('month');
+          endDate = moment.tz(tz).endOf('month');
           periodLabel = 'This Month';
           break;
         case 'last-month':
-          startDate = moment().subtract(1, 'month').startOf('month');
-          endDate = moment().subtract(1, 'month').endOf('month');
+          startDate = moment.tz(tz).subtract(1, 'month').startOf('month');
+          endDate = moment.tz(tz).subtract(1, 'month').endOf('month');
           periodLabel = 'Last Month';
           break;
         default:
-          startDate = moment().subtract(6, 'days').startOf('day');
-          endDate = moment().endOf('day');
+          startDate = moment.tz(tz).subtract(6, 'days').startOf('day');
+          endDate = moment.tz(tz).endOf('day');
           periodLabel = 'Last 7 Days';
       }
     }

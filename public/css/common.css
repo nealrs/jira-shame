@@ -1078,3 +1078,34 @@ h1 {
   }
 }
 
+/* Footer */
+.app-footer {
+  border-top: 1px solid var(--border, #DFE1E6);
+  padding: 16px 0 16px 1em;
+  margin-top: 40px;
+  text-align: left;
+}
+
+.app-footer a {
+  color: var(--text-muted, #6B778C);
+  font-size: 12px;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.app-footer a:hover {
+  color: var(--text-secondary, #42526E);
+}
+
+body[data-theme="dark"] .app-footer {
+  border-top-color: var(--border, #586e75);
+}
+
+body[data-theme="dark"] .app-footer a {
+  color: var(--text-muted, #657b83);
+}
+
+body[data-theme="dark"] .app-footer a:hover {
+  color: var(--text-secondary, #93a1a1);
+}
+

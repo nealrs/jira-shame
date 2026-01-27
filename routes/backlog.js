@@ -1,10 +1,11 @@
 const express = require('express');
-const moment = require('moment');
+const moment = require('moment-timezone');
 const router = express.Router();
-const { isHtmxRequest, debugLog, debugError, BOARD_ID, jiraClient, config } = require('./_helpers');
+const { isHtmxRequest, debugLog, debugError, BOARD_ID, jiraClient, config, getTz } = require('./_helpers');
 
 router.get('/backlog', async (req, res) => {
   try {
+    const tz = getTz();
     // 1. Get project key from board configuration
     let projectKey = null;
     try {
@@ -237,7 +238,7 @@ ${html}`;
     );
     
     // 7. Process issues to calculate age with humanized format
-    const now = moment();
+    const now = moment().tz(tz);
     const processedIssues = issuesWithSprints.map(issue => {
       const createdDate = moment(issue.fields.created);
       const daysOld = now.diff(createdDate, 'days', true); // Use true for decimal precision

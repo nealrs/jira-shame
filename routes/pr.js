@@ -1,7 +1,7 @@
 const express = require('express');
-const moment = require('moment');
+const moment = require('moment-timezone');
 const router = express.Router();
-const { isHtmxRequest, debugLog, debugWarn, debugError, githubClient, config } = require('./_helpers');
+const { isHtmxRequest, debugLog, debugWarn, debugError, githubClient, config, getTz } = require('./_helpers');
 
 router.get('/pr', async (req, res) => {
   try {
@@ -503,7 +503,8 @@ ${html}`;
       </script>
     `;
 
-    const now = moment();
+    const tz = getTz();
+    const now = moment().tz(tz);
     const content = `
       <h1>Pull Requests</h1>
       <p class="summary">Open Pull Requests in ${config.github.org}</p>

@@ -12,6 +12,7 @@ services:
       - GITHUB_ORG=${GITHUB_ORG}
       - NODE_ENV=${NODE_ENV}
       - DEBUG=${DEBUG}
+      - TZ=${TZ:-America/New_York}
     volumes:
       # Mount source code for hot reloading (exclude node_modules)
       - ./server.js:/app/server.js

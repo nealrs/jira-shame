@@ -4,7 +4,7 @@ const router = express.Router();
 const userCache = require('../utils/user-cache');
 
 // Use _helpers when available (same as load/backlog)
-let BOARD_ID, jiraClient, config, isHtmxRequest, debugLog, debugError;
+let BOARD_ID, jiraClient, config, isHtmxRequest, debugLog, debugError, getTz;
 try {
   const h = require('./_helpers');
   BOARD_ID = h.BOARD_ID;
@@ -13,6 +13,7 @@ try {
   isHtmxRequest = h.isHtmxRequest;
   debugLog = h.debugLog;
   debugError = h.debugError;
+  getTz = h.getTz;
 } catch (e) {
   const axios = require('axios');
   BOARD_ID = process.env.BOARD_ID || 7;
@@ -28,9 +29,8 @@ try {
   isHtmxRequest = (req) => !!(req.headers && req.headers['hx-request']);
   debugLog = () => {};
   debugError = (a, b) => console.error(a, b);
+  getTz = () => process.env.TZ || 'America/New_York';
 }
-
-const ET = 'America/New_York';
 
 /** Canonical order for sorting issues by status. */
 const STATUS_ORDER = [
@@ -146,7 +146,7 @@ router.get('/creep', async (req, res) => {
       params: { maxResults: 50, state: 'active,closed' },
     });
     const all = sprintsRes.data.values || [];
-    const now = moment().tz(ET);
+    const now = moment().tz(getTz());
     const allClosed = all.filter((s) => (s.state || '').toLowerCase() === 'closed');
     const allActive = all.filter((s) => (s.state || '').toLowerCase() === 'active');
     const withDatesClosed = allClosed.filter((s) => s.startDate && s.endDate);
@@ -154,17 +154,21 @@ router.get('/creep', async (req, res) => {
       .sort((a, b) => moment(b.endDate).valueOf() - moment(a.endDate).valueOf())
       .slice(0, 12);
     const activeWithDates = allActive.filter((s) => s.startDate && s.endDate);
-    const activeSprint = activeWithDates.find(
-      (s) => now.isBetween(moment.tz(s.startDate, ET), moment.tz(s.endDate, ET), null, '[]')
-    ) || null;
+    const activeSprint = activeWithDates.find((s) => {
+      const tz = getTz();
+      const start = moment.tz(s.startDate, tz).startOf('day');
+      const end = moment.tz(s.endDate, tz).endOf('day');
+      return now.isBetween(start, end, null, '[]');
+    }) || null;
     const sprintsToProcess = activeSprint ? [activeSprint, ...lastClosed] : lastClosed;
     const sprintRows = [];
 
     for (const sprint of sprintsToProcess) {
       const isActive = Boolean(activeSprint && sprint.id === activeSprint.id);
-      const startM = moment.tz(sprint.startDate, ET).add(1, 'day').endOf('day');
-      const endM = isActive ? moment.tz(ET).endOf('day') : moment.tz(sprint.endDate, ET).endOf('day');
-      const endDisplayM = moment.tz(sprint.endDate, ET);
+      const tz = getTz();
+      const startM = moment.tz(sprint.startDate, tz).add(1, 'day').endOf('day');
+      const endM = isActive ? moment.tz(tz).endOf('day') : moment.tz(sprint.endDate, tz).endOf('day');
+      const endDisplayM = moment.tz(sprint.endDate, tz);
 
       const report = await tryGetSprintReport(boardId, sprint.id);
       if (report) {

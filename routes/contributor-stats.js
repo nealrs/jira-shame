@@ -9,7 +9,7 @@ const moment = require('moment-timezone');
 const router = express.Router();
 const userCache = require('../utils/user-cache');
 
-let BOARD_ID, jiraClient, config, isHtmxRequest, debugError;
+let BOARD_ID, jiraClient, config, isHtmxRequest, debugError, getTz;
 try {
   const h = require('./_helpers');
   BOARD_ID = h.BOARD_ID;
@@ -17,6 +17,7 @@ try {
   config = h.config;
   isHtmxRequest = h.isHtmxRequest;
   debugError = h.debugError;
+  getTz = h.getTz;
 } catch (e) {
   const axios = require('axios');
   BOARD_ID = process.env.BOARD_ID || 7;
@@ -31,9 +32,8 @@ try {
     },
   });
   debugError = (a, b) => console.error(a, b);
+  getTz = () => process.env.TZ || 'America/New_York';
 }
-
-const ET = 'America/New_York';
 
 const DONE_STATUSES = new Set(['done', "won't do", 'wont do']);
 
@@ -126,7 +126,7 @@ router.get('/sweat', async (req, res) => {
       params: { maxResults: 50, state: 'active,closed' },
     });
     const all = sprintsRes.data.values || [];
-    const now = moment().tz(ET);
+    const now = moment().tz(getTz());
     const allClosed = all.filter((s) => (s.state || '').toLowerCase() === 'closed');
     const allActive = all.filter((s) => (s.state || '').toLowerCase() === 'active');
     const withDatesClosed = allClosed.filter((s) => s.startDate && s.endDate);
@@ -134,17 +134,21 @@ router.get('/sweat', async (req, res) => {
       .sort((a, b) => moment(b.endDate).valueOf() - moment(a.endDate).valueOf())
       .slice(0, 12);
     const activeWithDates = allActive.filter((s) => s.startDate && s.endDate);
-    const activeSprint = activeWithDates.find(
-      (s) => now.isBetween(moment.tz(s.startDate, ET), moment.tz(s.endDate, ET), null, '[]')
-    ) || null;
+    const activeSprint = activeWithDates.find((s) => {
+      const tz = getTz();
+      const start = moment.tz(s.startDate, tz).startOf('day');
+      const end = moment.tz(s.endDate, tz).endOf('day');
+      return now.isBetween(start, end, null, '[]');
+    }) || null;
     const sprintsToProcess = activeSprint ? [activeSprint, ...lastClosed] : lastClosed;
 
     const sprintRows = [];
 
     for (const sprint of sprintsToProcess) {
       const isActive = Boolean(activeSprint && sprint.id === activeSprint.id);
-      const startM = moment.tz(sprint.startDate, ET);
-      const endDisplayM = moment.tz(sprint.endDate, ET);
+      const tz = getTz();
+      const startM = moment.tz(sprint.startDate, tz);
+      const endDisplayM = moment.tz(sprint.endDate, tz);
       const dateRangeDisplay = formatDateRange(startM, endDisplayM);
 
       const issues = await getSprintIssuesForStats(boardId, sprint.id);

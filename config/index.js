@@ -19,6 +19,7 @@ const optionalVars = {
   DEBUG: process.env.DEBUG ? process.env.DEBUG === 'true' : process.env.NODE_ENV !== 'production',
   GITHUB_TOKEN: process.env.GITHUB_TOKEN,
   GITHUB_ORG: process.env.GITHUB_ORG,
+  TZ: process.env.TZ || 'America/New_York',
 };
 
 // Validate required variables
@@ -55,6 +56,7 @@ const config = {
     nodeEnv: optionalVars.NODE_ENV,
     debug: optionalVars.DEBUG,
   },
+  timezone: optionalVars.TZ,
   // API request configuration
   api: {
     timeout: 60000, // 60 seconds

@@ -18,7 +18,7 @@
       <div class="sortable" data-sort-key="summary" data-sort-type="text">Summary <span class="sort-indicator"></span></div>
       <div class="sortable" data-sort-key="assignee" data-sort-type="text">Assignee <span class="sort-indicator"></span></div>
       <div class="sortable" data-sort-key="reporter" data-sort-type="text">Reporter <span class="sort-indicator"></span></div>
-      <div class="sortable" data-sort-key="duration" data-sort-type="number">Duration <span class="sort-indicator"></span></div>
+      <div class="sortable" data-sort-key="completedDate" data-sort-type="text" title="Sort by completion date">Duration <span class="sort-indicator"></span></div>
     </div>
     <div class="tickets-container">
       <% processedIssues.forEach(issue => { %>
@@ -33,16 +33,6 @@
               .replace(/</g, '&lt;')
               .replace(/>/g, '&gt;');
           };
-          // Extract numeric duration for sorting (e.g., "2 days" -> 2, "1 week" -> 7)
-          let durationSort = 0;
-          const durationMatch = issue.durationText.match(/(\d+)/);
-          if (durationMatch) {
-            const num = parseInt(durationMatch[1]);
-            if (issue.durationText.includes('hour')) durationSort = num / 24;
-            else if (issue.durationText.includes('day')) durationSort = num;
-            else if (issue.durationText.includes('week')) durationSort = num * 7;
-            else if (issue.durationText.includes('month')) durationSort = num * 30;
-          }
         %>
         <% 
           // Use same escaping as filter-bar to ensure matching
@@ -54,7 +44,7 @@
              data-summary="<%= toAttr(issue.summary) %>"
              data-assignee-sort="<%= toAttr(issue.assignee) %>"
              data-reporter="<%= toAttr(issue.reporter) %>"
-             data-duration="<%= durationSort %>">
+             data-completed-date="<%= issue.completedDate %>">
           <div>
             <a href="<%= issue.link %>" class="key" target="_blank"><%= issue.key %></a>
           </div>
