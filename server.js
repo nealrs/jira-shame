@@ -35,9 +35,11 @@ const prRoutes = require('./routes/pr');
 const loadRoutes = require('./routes/load');
 const creepRoutes = require('./routes/creep');
 const contributorStatsRoutes = require('./routes/contributor-stats');
+const retroRoutes = require('./routes/retro');
 
 // Mount routes
 app.use('/', homeRoutes);
+app.use('/', retroRoutes);
 app.use('/', slowRoutes);
 app.use('/', doneRoutes);
 app.use('/', progressRoutes);

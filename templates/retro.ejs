@@ -1,0 +1,150 @@
+<div class="digest-page" id="digest-content">
+  <header class="digest-header">
+    <h1>Last Sprint Retro</h1>
+    <div class="digest-meta">
+      <p class="digest-sprint">Sprint: <strong><%= digest.sprintName || digest.periodLabel %></strong> (most recently ended)</p>
+      <p class="generated-at">Generated <%= digest.generatedAt %></p>
+    </div>
+  </header>
+
+  <section class="digest-section digest-section-collapsible digest-callouts" data-section="retro-notes">
+    <h2 class="digest-section-header"><button type="button" class="digest-section-toggle" aria-expanded="true" data-section="retro-notes">Retro notes</button></h2>
+    <div class="digest-section-body retro-notes-stats">
+      <% if (digest.retroNotes && digest.retroNotes.length > 0) { %>
+        <% digest.retroNotes.forEach(c => { %>
+          <p class="digest-stats digest-stats-padded retro-rollover"><%= c.message %></p>
+        <% }); %>
+      <% } %>
+      <% if (digest.creep) { %>
+        <dl class="digest-scope-stats">
+          <dt>Started with</dt><dd><%= digest.creep.startedWith %></dd>
+          <dt>Ended with</dt><dd><%= digest.creep.endedWith %></dd>
+          <dt>Creep (net)</dt><dd><%= digest.creep.creepNet >= 0 ? '+' : '' %><%= digest.creep.creepNet %> (<%= digest.creep.addedCount %> added, <%= digest.creep.removedCount %> removed)</dd>
+          <dt>% complete (of ended)</dt><dd><%= digest.creep.pctCompleteEnded %>%</dd>
+          <dt>% complete (of started)</dt><dd><%= digest.creep.pctCompleteStarted %>%</dd>
+        </dl>
+        <div class="creep-visual">
+          <% const scopeTotal = digest.creep.endedWith || 1; %>
+          <div class="creep-bar" title="Committed (started) vs added; completed vs incomplete">
+            <div class="creep-segment creep-committed-done" style="width: <%= scopeTotal ? (digest.creep.completedFromStart / scopeTotal * 100) : 0 %>%;" title="Sprint Start, completed: <%= digest.creep.completedFromStart %>"></div>
+            <div class="creep-segment creep-committed-incomplete" style="width: <%= scopeTotal ? (digest.creep.incompleteFromStart / scopeTotal * 100) : 0 %>%;" title="Sprint Start, incomplete: <%= digest.creep.incompleteFromStart %>"></div>
+            <div class="creep-segment creep-added-done" style="width: <%= scopeTotal ? (digest.creep.completedFromAdded / scopeTotal * 100) : 0 %>%;" title="Creep, completed: <%= digest.creep.completedFromAdded %>"></div>
+            <div class="creep-segment creep-added-incomplete" style="width: <%= scopeTotal ? (digest.creep.incompleteFromAdded / scopeTotal * 100) : 0 %>%;" title="Creep, incomplete: <%= digest.creep.incompleteFromAdded %>"></div>
+          </div>
+          <div class="creep-legend">
+            <span class="creep-legend-item"><span class="creep-dot committed-done"></span> Sprint Start, done: <strong><%= digest.creep.completedFromStart %></strong></span>
+            <span class="creep-legend-item"><span class="creep-dot committed-incomplete"></span> Sprint Start, incomplete: <strong><%= digest.creep.incompleteFromStart %></strong></span>
+            <span class="creep-legend-item"><span class="creep-dot added-done"></span> Creep, done: <strong><%= digest.creep.completedFromAdded %></strong></span>
+            <span class="creep-legend-item"><span class="creep-dot added-incomplete"></span> Creep, incomplete: <strong><%= digest.creep.incompleteFromAdded %></strong></span>
+          </div>
+        </div>
+      <% } %>
+    </div>
+  </section>
+
+  <% if (digest.sweat && digest.sweat.rows && digest.sweat.rows.length > 0) { %>
+  <section class="digest-section digest-section-collapsible" data-section="sweat">
+    <h2 class="digest-section-header"><button type="button" class="digest-section-toggle" aria-expanded="true" data-section="sweat">Sweat (assigned vs completed)</button></h2>
+    <div class="digest-section-body">
+    <p class="digest-stats digest-stats-padded">Sprint: <strong><%= digest.sweat.sprintName || '—' %></strong></p>
+    <table class="digest-table">
+      <thead><tr><th>Assignee</th><th>Assigned</th><th>Completed</th><th>Gap %</th></tr></thead>
+      <tbody>
+        <% digest.sweat.rows.forEach(r => { %>
+          <tr>
+            <td class="digest-cell-avatar-name"><% if (r.avatarUrl) { %><img class="digest-avatar" src="<%= r.avatarUrl %>" alt="" width="20" height="20" /><% } %><%= r.assigneeShort %></td>
+            <td><%= r.assigned %></td>
+            <td><%= r.completed %></td>
+            <td><%= r.gapPct %>%</td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+    </div>
+  </section>
+  <% } %>
+
+  <section class="digest-section digest-section-collapsible" data-section="high-priority">
+    <h2 class="digest-section-header"><button type="button" class="digest-section-toggle" aria-expanded="true" data-section="high-priority">High priority</button></h2>
+    <div class="digest-section-body">
+    <% if (digest.highPriority && digest.highPriority.length > 0) { %>
+    <table class="digest-table">
+      <thead><tr><th>Key</th><th>Assignee</th><th>Summary</th><th>Status</th></tr></thead>
+      <tbody>
+        <% digest.highPriority.forEach(i => { %>
+          <tr>
+            <td class="digest-cell-key"><a href="<%= i.link %>" target="_blank"><%= i.key %></a></td>
+            <td class="digest-cell-avatar-name"><% if (i.avatarUrl) { %><img class="digest-avatar" src="<%= i.avatarUrl %>" alt="" width="20" height="20" /><% } %><%= i.assigneeShort %></td>
+            <td><%= i.summary %></td>
+            <td><%= i.status %></td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+    <% } else { %>
+    <p class="digest-empty">None in this sprint.</p>
+    <% } %>
+    </div>
+  </section>
+
+  <section class="digest-section digest-section-collapsible" data-section="completed">
+    <h2 class="digest-section-header"><button type="button" class="digest-section-toggle" aria-expanded="true" data-section="completed">Completed this sprint</button></h2>
+    <div class="digest-section-body">
+    <p class="digest-stats digest-stats-padded"><strong><%= digest.progress.count %></strong> completed in <%= digest.progress.periodLabel %>.</p>
+    <% if (digest.progress.issues && digest.progress.issues.length > 0) { %>
+    <table class="digest-table digest-table-people">
+      <thead><tr><th>Key</th><th>Assignee</th><th>Summary</th></tr></thead>
+      <tbody>
+        <% digest.progress.issues.forEach(issue => { %>
+          <tr>
+            <td class="digest-cell-key"><a href="<%= issue.link %>" target="_blank"><%= issue.key %></a></td>
+            <td class="digest-cell-avatar-name"><% if (issue.avatarUrl) { %><img class="digest-avatar" src="<%= issue.avatarUrl %>" alt="" width="20" height="20" /><% } %><%= issue.assigneeShort %></td>
+            <td><%= issue.summary.slice(0, 50) %><%= issue.summary.length > 50 ? '…' : '' %></td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+    <% } %>
+    </div>
+  </section>
+
+  <section class="digest-section digest-section-collapsible" data-section="incomplete">
+    <h2 class="digest-section-header"><button type="button" class="digest-section-toggle" aria-expanded="true" data-section="incomplete">Incomplete in sprint (carried over)</button></h2>
+    <div class="digest-section-body">
+    <p class="digest-stats digest-stats-padded"><strong><%= digest.incomplete.total %></strong> issues not Done in <%= digest.sprintName %>.</p>
+    <% if (digest.incomplete && digest.incomplete.incomplete && digest.incomplete.incomplete.length > 0) { %>
+    <table class="digest-table digest-table-people">
+      <thead><tr><th>Key</th><th>Assignee</th><th>Summary</th><th>Status</th></tr></thead>
+      <tbody>
+        <% digest.incomplete.incomplete.forEach(i => { %>
+          <tr>
+            <td class="digest-cell-key"><a href="<%= i.link %>" target="_blank"><%= i.key %></a></td>
+            <td class="digest-cell-avatar-name"><% if (i.avatarUrl) { %><img class="digest-avatar" src="<%= i.avatarUrl %>" alt="" width="20" height="20" /><% } %><%= i.assigneeShort %></td>
+            <td><%= i.summary %></td>
+            <td><%= i.status %></td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+    <% } else { %>
+    <p class="digest-empty">None.</p>
+    <% } %>
+    </div>
+  </section>
+
+  <% /* Scope / velocity stats and bar are now inside Retro notes section above */ %>
+  <% /* Backlog section commented out – not actionable for retro */ %>
+
+  <% if (false && digest.pr) { /* PR section commented out */ %>
+  <section class="digest-section">
+    <h2>Pull requests</h2>
+    <ul class="digest-pr-bullets">
+      <li>Open: <strong><%= digest.pr.total %></strong></li>
+      <li>Over <%= digest.prOpenDaysThreshold || 5 %> days: <strong><%= digest.pr.openOver5Days %></strong></li>
+      <li>No reviewers: <strong><%= digest.pr.noReviewers %></strong></li>
+    </ul>
+    <p><a href="/pr">Full PR report</a></p>
+  </section>
+  <% } %>
+
+</div>

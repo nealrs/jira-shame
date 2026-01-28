@@ -25,6 +25,8 @@ Also, I wanted to see how good Cursor was at making my life easier. I wrote some
 
 **Sweat** (`/sweat`) - The report that should make you sweat. Developer productivity by sprint: assigned vs completed per person, one row per assignee and one column per sprint.
 
+**Retro** (`/retro`) - Last sprint retro for the **most recently ended sprint only** (not daily or weekly). Shows completed and incomplete issues, high priority, Sweat (assigned vs completed), and scope creep stats.
+
 ## How It Works
 
 ### Slow Motion
@@ -251,6 +253,7 @@ This project is licensed under the **GNU `Affero` General Public License v3.0 (o
 - `GET /pr` - Pull Requests report showing all open pull requests with review status across GitHub organization
 - `GET /load` - Load report showing current sprint board-column load + future sprint load per assignee
 - `GET /sweat` - Sweat: developer productivity by sprint (assigned vs completed per person)
+- `GET /retro` - Last sprint retro (most recently ended sprint only). `?format=html` returns an HTML fragment (no nav/scripts).
 
 ## Architecture
 

@@ -8,6 +8,8 @@ const cache = new Map();
 
 const UUID_RE = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const UG_UUID_RE = /^ug:[a-f0-9-]+$/i;
+/** Jira Cloud accountId: numeric prefix + colon + uuid (e.g. 557058:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx) */
+const CLOUD_ACCOUNT_ID_RE = /^\d+:[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 
 function altKey(key) {
   if (!key || typeof key !== 'string') return null;
@@ -38,17 +40,17 @@ function set(accountId, entry) {
 /**
  * Seed cache from a Jira API user/assignee object (e.g. issue.fields.assignee).
  * Accepts { accountId, displayName, avatarUrls } or similar.
+ * Only stores when we have a real display name (not raw accountId) so we don't cache "ug:uuid" as the name.
  */
 function seedFromJiraUser(jiraUser) {
   if (!jiraUser || typeof jiraUser !== 'object') return;
   const accountId = jiraUser.accountId || (typeof jiraUser === 'string' ? jiraUser : null);
   if (!accountId) return;
+  const displayName = (jiraUser.displayName || jiraUser.name || '').toString().trim();
+  if (!displayName || displayName === accountId) return;
   const urls = jiraUser.avatarUrls || {};
   const avatarUrl = urls['48x48'] || urls['32x32'] || urls['24x24'] || urls['16x16'] || null;
-  set(accountId, {
-    displayName: jiraUser.displayName || jiraUser.name || accountId,
-    avatarUrl,
-  });
+  set(accountId, { displayName, avatarUrl });
 }
 
 function userFromResponse(u, fallbackKey) {
@@ -81,6 +83,7 @@ async function resolveAsync(accountIdOrUg, jiraClient, config) {
     { url: '/rest/api/3/user', params: (id) => ({ accountId: id }) },
     { url: '/rest/api/3/user/bulk', params: (id) => ({ accountId: [id] }), pluck: (data) => (data && data.values && data.values[0]) || null },
     { url: '/rest/api/2/user', params: (id) => ({ accountId: id }) },
+    { url: '/rest/api/2/user', params: (id) => ({ username: id }) },
   ];
 
   for (const accountId of idsToTry) {
@@ -106,11 +109,11 @@ async function resolveAsync(accountIdOrUg, jiraClient, config) {
   return { displayName: key, avatarUrl: null };
 }
 
-/** True if the string looks like an account id (ug:uuid or bare UUID) that needs resolution. */
+/** True if the string looks like an account id (ug:uuid, bare UUID, or Cloud digits:uuid) that needs resolution. */
 function isAccountId(s) {
   if (typeof s !== 'string' || !s.trim()) return false;
   const k = s.trim();
-  return UG_UUID_RE.test(k) || UUID_RE.test(k);
+  return UG_UUID_RE.test(k) || UUID_RE.test(k) || CLOUD_ACCOUNT_ID_RE.test(k);
 }
 
 module.exports = {

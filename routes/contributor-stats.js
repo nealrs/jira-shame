@@ -37,6 +37,16 @@ try {
 
 const DONE_STATUSES = new Set(['done', "won't do", 'wont do']);
 
+/** Same as retro: return display name or accountId so we can resolve later. Never use raw id as display. */
+function assigneeDisplay(assignee) {
+  if (!assignee) return 'Unassigned';
+  userCache.seedFromJiraUser(assignee);
+  const name = (assignee.displayName || assignee.name || '').toString().trim();
+  const accountId = (assignee.accountId ?? (typeof assignee === 'string' ? assignee : null) ?? '').toString();
+  if (name && name !== accountId) return name;
+  return accountId || (typeof assignee === 'string' ? assignee : null) || 'Unassigned';
+}
+
 function formatDateRange(startM, endM) {
   if (!startM || !endM || !startM.isValid() || !endM.isValid()) return '—';
   const sy = startM.year();
@@ -73,10 +83,7 @@ async function getSprintIssuesForStats(boardId, sprintId) {
       const key = e.key ?? e.id ?? (typeof e === 'string' ? e : '');
       const fields = e.fields ?? e;
       const rawAssignee = fields.assignee;
-      userCache.seedFromJiraUser(rawAssignee);
-      const assignee = (rawAssignee && rawAssignee.displayName)
-        || (typeof rawAssignee === 'string' ? rawAssignee : null)
-        || 'Unassigned';
+      const assignee = assigneeDisplay(rawAssignee);
       const status = (fields.status?.name ?? fields.status ?? '—').toString();
       return { key, assignee, status };
     };
@@ -162,24 +169,24 @@ router.get('/sweat', async (req, res) => {
       });
     }
 
-    // Resolve assignee ids (ug:uuid / bare uuid) using same approach as creep: cache, issue API, then resolveAsync
+    // Resolve any assignee key not already in cache (same key used in issues when building contributors)
     const needResolve = new Set();
-    const keyToAccountId = {};
+    const keyToAssigneeKey = {}; // issue key -> assignee key we use in rows
     for (const row of sprintRows) {
       for (const issue of row.issues || []) {
         const a = issue.assignee;
-        if (userCache.isAccountId(a)) {
+        if (a && a !== 'Unassigned' && !userCache.get(a)) {
           needResolve.add(a);
-          keyToAccountId[issue.key] = a;
+          keyToAssigneeKey[issue.key] = a;
         }
       }
     }
-    const resolved = new Map(); // id -> { displayName, avatarUrl }
-    for (const ug of needResolve) {
-      const hit = userCache.get(ug);
-      if (hit) resolved.set(ug, { displayName: hit.displayName, avatarUrl: hit.avatarUrl });
+    const resolved = new Map(); // assignee key -> { displayName, avatarUrl }
+    for (const key of needResolve) {
+      const hit = userCache.get(key);
+      if (hit) resolved.set(key, { displayName: hit.displayName, avatarUrl: hit.avatarUrl });
     }
-    const keysToFetch = [...new Set(Object.keys(keyToAccountId).filter((k) => !resolved.has(keyToAccountId[k])))];
+    const keysToFetch = [...new Set(Object.keys(keyToAssigneeKey).filter((k) => !resolved.has(keyToAssigneeKey[k])))];
     if (keysToFetch.length > 0) {
       const chunk = (arr, n) => { const out = []; for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n)); return out; };
       for (const keyChunk of chunk(keysToFetch, 50)) {
@@ -191,15 +198,17 @@ router.get('/sweat', async (req, res) => {
           });
           const apiIssues = searchRes.data?.issues || [];
           for (const iss of apiIssues) {
-            const accountId = keyToAccountId[iss.key];
-            if (!accountId) continue;
+            const assigneeKey = keyToAssigneeKey[iss.key];
+            if (!assigneeKey) continue;
             const assignee = iss.fields?.assignee;
             userCache.seedFromJiraUser(assignee);
             const urls = (assignee?.avatarUrls && typeof assignee.avatarUrls === 'object') ? assignee.avatarUrls : {};
             const avatarUrl = urls['48x48'] || urls['32x32'] || urls['24x24'] || urls['16x16'] || null;
-            const displayName = ((assignee?.displayName || assignee?.name) ?? accountId).toString().trim();
-            resolved.set(accountId, { displayName, avatarUrl });
-            userCache.set(accountId, { displayName, avatarUrl });
+            const displayName = ((assignee?.displayName || assignee?.name) ?? '').toString().trim();
+            const accountId = (assignee?.accountId ?? '').toString();
+            const name = (displayName && displayName !== accountId) ? displayName : assigneeKey;
+            resolved.set(assigneeKey, { displayName: name, avatarUrl });
+            if (displayName && displayName !== accountId) userCache.set(assigneeKey, { displayName, avatarUrl });
           }
         } catch (e) {
           debugError('Contributor-stats: issue fetch for assignees failed', e?.message || e);
@@ -212,11 +221,11 @@ router.get('/sweat', async (req, res) => {
       resolved.set(id, { displayName: r.displayName, avatarUrl: r.avatarUrl });
     }));
 
-    // Derive contributors from issues using resolved display names and avatars
+    // Derive contributors from issues using resolved display names and avatars (fall back to cache for alt-key hits)
     for (const row of sprintRows) {
       const byDisplay = new Map();
       for (const issue of row.issues || []) {
-        const r = resolved.get(issue.assignee);
+        const r = resolved.get(issue.assignee) || userCache.get(issue.assignee);
         const display = r ? r.displayName : (issue.assignee || 'Unassigned');
         const avatarUrl = r ? r.avatarUrl : null;
         if (!byDisplay.has(display)) {

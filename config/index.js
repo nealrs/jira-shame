@@ -63,6 +63,14 @@ const config = {
     retries: 3,
     retryDelay: 1000, // Initial delay in ms
   },
+  // Digest / coaching (optional)
+  digest: {
+    highPriorityNames: ['Highest', 'High'],
+    coachingBacklogAgeWeeksThreshold: 12,
+    coachingSweatGapPercent: 30,
+    coachingLoadImbalanceRatio: 2,
+    coachingPROpenDaysThreshold: 5,
+  },
 };
 
 // Validate GitHub config if PR route might be used

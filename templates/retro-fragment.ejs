@@ -1,0 +1,86 @@
+<div class="digest-email" id="digest-email-fragment">
+  <h1>Last Sprint Retro – <%= digest.sprintName || digest.periodLabel %></h1>
+  <p>Generated <%= digest.generatedAt %></p>
+
+  <h2>Retro notes</h2>
+  <% if (digest.retroNotes && digest.retroNotes.length > 0) { %>
+    <% digest.retroNotes.forEach(c => { %>
+      <p style="margin: 0 0 10px 0;"><%= c.message %></p>
+    <% }); %>
+  <% } %>
+  <% if (digest.creep) { %>
+  <p style="margin: 0 0 6px 0;"><strong><%= digest.creep.sprintName %></strong> — sprint stats</p>
+  <p style="margin: 0 0 8px 0;">Started with: <strong><%= digest.creep.startedWith %></strong>. Ended with: <strong><%= digest.creep.endedWith %></strong>. Creep (net): <%= digest.creep.creepNet >= 0 ? '+' : '' %><%= digest.creep.creepNet %> (<%= digest.creep.addedCount %> added, <%= digest.creep.removedCount %> removed).</p>
+  <p style="margin: 0 0 8px 0;">% complete (of ended): <strong><%= digest.creep.pctCompleteEnded %>%</strong>. % complete (of started): <strong><%= digest.creep.pctCompleteStarted %>%</strong>.</p>
+  <% } %>
+
+  <h2>Completed this sprint</h2>
+  <p><strong><%= digest.progress.count %></strong> completed in <%= digest.progress.periodLabel %>.</p>
+  <% if (digest.progress.issues && digest.progress.issues.length > 0) { %>
+  <table style="border-collapse: collapse; width: 100%; margin: 8px 0;">
+    <thead><tr style="background: #eee;"><th style="padding: 6px 8px; text-align: left;">Key</th><th style="padding: 6px 8px; text-align: left;">Assignee</th><th style="padding: 6px 8px; text-align: left;">Summary</th></tr></thead>
+    <tbody>
+      <% digest.progress.issues.forEach(issue => { %>
+        <tr style="border-bottom: 1px solid #ddd;"><td style="padding: 6px 8px; white-space: nowrap;"><a href="<%= issue.link %>"><%= issue.key %></a></td><td style="padding: 6px 8px; white-space: nowrap;"><% if (issue.avatarUrl) { %><img src="<%= issue.avatarUrl %>" alt="" width="20" height="20" style="border-radius: 50%; vertical-align: middle; margin-right: 6px;" /><% } %><%= issue.assigneeShort %></td><td style="padding: 6px 8px;"><%= issue.summary.slice(0, 50) %><%= issue.summary.length > 50 ? '…' : '' %></td></tr>
+      <% }); %>
+    </tbody>
+  </table>
+  <% } %>
+
+  <h2>Incomplete in sprint (carried over)</h2>
+  <% if (digest.incomplete && digest.incomplete.incomplete && digest.incomplete.incomplete.length > 0) { %>
+  <table style="border-collapse: collapse; width: 100%; margin: 8px 0;">
+    <thead><tr style="background: #eee;"><th style="padding: 6px 8px; text-align: left;">Key</th><th style="padding: 6px 8px; text-align: left;">Assignee</th><th style="padding: 6px 8px; text-align: left;">Summary</th><th style="padding: 6px 8px;">Status</th></tr></thead>
+    <tbody>
+      <% digest.incomplete.incomplete.forEach(i => { %>
+        <tr style="border-bottom: 1px solid #ddd;"><td style="padding: 6px 8px; white-space: nowrap;"><a href="<%= i.link %>"><%= i.key %></a></td><td style="padding: 6px 8px; white-space: nowrap;"><% if (i.avatarUrl) { %><img src="<%= i.avatarUrl %>" alt="" width="20" height="20" style="border-radius: 50%; vertical-align: middle; margin-right: 6px;" /><% } %><%= i.assigneeShort %></td><td style="padding: 6px 8px;"><%= i.summary %></td><td style="padding: 6px 8px;"><%= i.status %></td></tr>
+      <% }); %>
+    </tbody>
+  </table>
+  <% } else { %>
+  <p>None.</p>
+  <% } %>
+
+  <h2>High priority</h2>
+  <% if (digest.highPriority && digest.highPriority.length > 0) { %>
+  <table style="border-collapse: collapse; width: 100%; margin: 8px 0;">
+    <thead><tr style="background: #eee;"><th style="padding: 6px 8px; text-align: left;">Key</th><th style="padding: 6px 8px; text-align: left;">Summary</th><th style="padding: 6px 8px;">Assignee</th><th style="padding: 6px 8px;">Status</th></tr></thead>
+    <tbody>
+      <% digest.highPriority.forEach(i => { %>
+        <tr style="border-bottom: 1px solid #ddd;"><td style="padding: 6px 8px; white-space: nowrap;"><a href="<%= i.link %>"><%= i.key %></a></td><td style="padding: 6px 8px;"><%= i.summary %></td><td style="padding: 6px 8px;"><%= i.assigneeShort %></td><td style="padding: 6px 8px;"><%= i.status %></td></tr>
+      <% }); %>
+    </tbody>
+  </table>
+  <% } else { %>
+  <p>None in this sprint.</p>
+  <% } %>
+
+  <% if (digest.sweat && digest.sweat.rows && digest.sweat.rows.length > 0) { %>
+  <h2>Sweat (assigned vs completed)</h2>
+  <p>Sprint: <strong><%= digest.sweat.sprintName || '—' %></strong></p>
+  <table style="border-collapse: collapse; width: 100%; margin: 8px 0;">
+    <thead><tr style="background: #eee;"><th style="padding: 6px 8px; text-align: left;">Assignee</th><th style="padding: 6px 8px;">Assigned</th><th style="padding: 6px 8px;">Completed</th><th style="padding: 6px 8px;">Gap %</th></tr></thead>
+    <tbody>
+      <% digest.sweat.rows.forEach(r => { %>
+        <tr style="border-bottom: 1px solid #ddd;"><td style="padding: 6px 8px;"><%= r.assigneeShort %></td><td style="padding: 6px 8px;"><%= r.assigned %></td><td style="padding: 6px 8px;"><%= r.completed %></td><td style="padding: 6px 8px;"><%= r.gapPct %>%</td></tr>
+      <% }); %>
+    </tbody>
+  </table>
+  <% } %>
+
+  <% if (digest.creep) { %>
+  <h2>Scope / velocity</h2>
+  <p><strong><%= digest.creep.sprintName %></strong>.</p>
+  <p>Started with: <strong><%= digest.creep.startedWith %></strong>. Ended with: <strong><%= digest.creep.endedWith %></strong>. Creep (net): <%= digest.creep.creepNet >= 0 ? '+' : '' %><%= digest.creep.creepNet %> (<%= digest.creep.addedCount %> added, <%= digest.creep.removedCount %> removed).</p>
+  <p>% complete (of ended): <strong><%= digest.creep.pctCompleteEnded %>%</strong>. % complete (of started): <strong><%= digest.creep.pctCompleteStarted %>%</strong>.</p>
+  <% } %>
+
+  <% if (false && digest.pr) { /* PR section commented out */ %>
+  <h2>Pull requests</h2>
+  <ul>
+    <li>Open: <strong><%= digest.pr.total %></strong></li>
+    <li>Over <%= digest.prOpenDaysThreshold || 5 %> days: <strong><%= digest.pr.openOver5Days %></strong></li>
+    <li>No reviewers: <strong><%= digest.pr.noReviewers %></strong></li>
+  </ul>
+  <% } %>
+</div>

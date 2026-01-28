@@ -345,11 +345,12 @@ body[data-theme="dark"] .error-message code {
   padding: 20px 40px 60px 40px;
 }
 
-h1 { 
-  text-align: center; 
+h1 {
+  font-family: inherit;
   font-size: 32px;
-  margin-top: 0;
-  margin-bottom: 10px;
+  font-weight: 600;
+  margin: 0 0 10px 0;
+  text-align: center;
   color: #172B4D;
 }
 
