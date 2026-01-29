@@ -46,16 +46,15 @@
   <section class="digest-section digest-section-collapsible" data-section="sweat">
     <h2 class="digest-section-header"><button type="button" class="digest-section-toggle" aria-expanded="true" data-section="sweat">Sweat (assigned vs completed)</button></h2>
     <div class="digest-section-body">
-    <p class="digest-stats digest-stats-padded">Sprint: <strong><%= digest.sweat.sprintName || '—' %></strong></p>
     <table class="digest-table">
-      <thead><tr><th>Assignee</th><th>Assigned</th><th>Completed</th><th>Gap %</th></tr></thead>
+      <thead><tr><th class="sortable">Assignee <span class="sort-indicator"></span></th><th class="sortable sort-numeric">Assigned <span class="sort-indicator"></span></th><th class="sortable sort-numeric">Completed <span class="sort-indicator"></span></th><th class="sortable sort-numeric">Gap % <span class="sort-indicator"></span></th></tr></thead>
       <tbody>
         <% digest.sweat.rows.forEach(r => { %>
           <tr>
             <td class="digest-cell-avatar-name"><% if (r.avatarUrl) { %><img class="digest-avatar" src="<%= r.avatarUrl %>" alt="" width="20" height="20" /><% } %><%= r.assigneeShort %></td>
-            <td><%= r.assigned %></td>
-            <td><%= r.completed %></td>
-            <td><%= r.gapPct %>%</td>
+            <td data-sort-numeric="<%= r.assigned %>"><%= r.assigned %></td>
+            <td data-sort-numeric="<%= r.completed %>"><%= r.completed %></td>
+            <td data-sort-numeric="<%= r.gapPct %>"><%= r.gapPct %>%</td>
           </tr>
         <% }); %>
       </tbody>
@@ -69,7 +68,7 @@
     <div class="digest-section-body">
     <% if (digest.highPriority && digest.highPriority.length > 0) { %>
     <table class="digest-table">
-      <thead><tr><th>Key</th><th>Assignee</th><th>Summary</th><th>Status</th><th>Issue type</th></tr></thead>
+      <thead><tr><th class="sortable">Key <span class="sort-indicator"></span></th><th class="sortable">Assignee <span class="sort-indicator"></span></th><th class="sortable">Summary <span class="sort-indicator"></span></th><th class="sortable">Status <span class="sort-indicator"></span></th><th class="sortable">Issue type <span class="sort-indicator"></span></th></tr></thead>
       <tbody>
         <% digest.highPriority.forEach(i => { %>
           <tr>
@@ -126,12 +125,11 @@
   </section>
 
   <section class="digest-section digest-section-collapsible" data-section="completed">
-    <h2 class="digest-section-header"><button type="button" class="digest-section-toggle" aria-expanded="true" data-section="completed">Completed this sprint</button></h2>
+    <h2 class="digest-section-header"><button type="button" class="digest-section-toggle" aria-expanded="true" data-section="completed">Completed this sprint (<%= digest.progress.count %>)</button></h2>
     <div class="digest-section-body">
-    <p class="digest-stats digest-stats-padded"><strong><%= digest.progress.count %></strong> completed in <%= digest.progress.periodLabel %>.</p>
     <% if (digest.progress.issues && digest.progress.issues.length > 0) { %>
     <table class="digest-table digest-table-people">
-      <thead><tr><th>Key</th><th>Assignee</th><th>Summary</th><th>Issue type</th></tr></thead>
+      <thead><tr><th class="sortable">Key <span class="sort-indicator"></span></th><th class="sortable">Assignee <span class="sort-indicator"></span></th><th class="sortable">Summary <span class="sort-indicator"></span></th><th class="sortable">Issue type <span class="sort-indicator"></span></th></tr></thead>
       <tbody>
         <% digest.progress.issues.forEach(issue => { %>
           <tr>
@@ -148,12 +146,11 @@
   </section>
 
   <section class="digest-section digest-section-collapsible" data-section="incomplete">
-    <h2 class="digest-section-header"><button type="button" class="digest-section-toggle" aria-expanded="true" data-section="incomplete">Incomplete in sprint (carried over)</button></h2>
+    <h2 class="digest-section-header"><button type="button" class="digest-section-toggle" aria-expanded="true" data-section="incomplete">Carry Forward / Incomplete (<%= digest.incomplete.total %>)</button></h2>
     <div class="digest-section-body">
-    <p class="digest-stats digest-stats-padded"><strong><%= digest.incomplete.total %></strong> issues not Done in <%= digest.sprintName %>.</p>
     <% if (digest.incomplete && digest.incomplete.incomplete && digest.incomplete.incomplete.length > 0) { %>
     <table class="digest-table digest-table-people">
-      <thead><tr><th>Key</th><th>Assignee</th><th>Summary</th><th>Status</th><th>Issue type</th></tr></thead>
+      <thead><tr><th class="sortable">Key <span class="sort-indicator"></span></th><th class="sortable">Assignee <span class="sort-indicator"></span></th><th class="sortable">Summary <span class="sort-indicator"></span></th><th class="sortable">Status <span class="sort-indicator"></span></th><th class="sortable">Issue type <span class="sort-indicator"></span></th></tr></thead>
       <tbody>
         <% digest.incomplete.incomplete.forEach(i => { %>
           <tr>

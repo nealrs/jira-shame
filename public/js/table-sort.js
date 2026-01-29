@@ -85,6 +85,64 @@ function initTableSorting() {
       });
     });
   });
+
+  // Handle any other table with thead th.sortable (e.g. .digest-table on retro)
+  document.querySelectorAll('table').forEach((table) => {
+    if (table.classList.contains('load-table')) return;
+    const headers = Array.from(table.querySelectorAll('thead th.sortable'));
+    if (headers.length === 0) return;
+    let initialDescIndex = -1;
+    let initialDescNumeric = false;
+    headers.forEach((th, index) => {
+      if (th.classList.contains('sort-initial-desc')) {
+        initialDescIndex = index;
+        initialDescNumeric = th.classList.contains('sort-numeric');
+      }
+      const newTh = th.cloneNode(true);
+      th.parentNode.replaceChild(newTh, th);
+      newTh.addEventListener('click', function() {
+        const isNumeric = this.classList.contains('sort-numeric');
+        sortTableByColumn(table, index, isNumeric);
+      });
+    });
+    if (initialDescIndex >= 0) {
+      const initialTh = table.querySelectorAll('thead th')[initialDescIndex];
+      if (initialTh) {
+        initialTh.classList.add('sort-desc');
+        sortTableByColumn(table, initialDescIndex, initialDescNumeric);
+      }
+    }
+  });
+}
+
+function sortTableByColumn(table, columnIndex, isNumeric) {
+  const tbody = table.querySelector('tbody');
+  if (!tbody) return;
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  const headers = table.querySelectorAll('thead th');
+  const th = headers[columnIndex];
+  if (!th) return;
+  table.querySelectorAll('thead th').forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
+  const wasDesc = th.classList.contains('sort-desc');
+  const isAsc = wasDesc;
+  th.classList.add(isAsc ? 'sort-asc' : 'sort-desc');
+  rows.sort((a, b) => {
+    const aCell = a.cells[columnIndex];
+    const bCell = b.cells[columnIndex];
+    if (!aCell || !bCell) return 0;
+    let aVal, bVal;
+    if (isNumeric) {
+      aVal = parseFloat(aCell.getAttribute('data-sort-numeric')) || parseFloat((aCell.textContent || '').replace(/[^0-9.-]/g, '')) || 0;
+      bVal = parseFloat(bCell.getAttribute('data-sort-numeric')) || parseFloat((bCell.textContent || '').replace(/[^0-9.-]/g, '')) || 0;
+    } else {
+      aVal = (aCell.textContent || '').trim().toLowerCase();
+      bVal = (bCell.textContent || '').trim().toLowerCase();
+    }
+    if (aVal < bVal) return isAsc ? -1 : 1;
+    if (aVal > bVal) return isAsc ? 1 : -1;
+    return 0;
+  });
+  rows.forEach(row => tbody.appendChild(row));
 }
 
 function sortLoadTable(tableId, columnIndex, isNumeric = false) {

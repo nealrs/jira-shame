@@ -682,7 +682,7 @@ async function getStuckData(projectKey, sprint) {
 function buildRetroNotes(digest) {
   const out = [];
   if (digest.incomplete?.total > 0) {
-    out.push({ type: 'summary', message: `${digest.incomplete.total} ticket(s) incomplete in sprint (carried over).` });
+    out.push({ type: 'summary', message: `${digest.incomplete.total} ticket(s) Carry Forward / Incomplete.` });
   }
   return out;
 }
