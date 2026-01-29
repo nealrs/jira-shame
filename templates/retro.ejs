@@ -87,6 +87,43 @@
     </div>
   </section>
 
+  <section class="digest-section digest-section-collapsible" data-section="stuck">
+    <h2 class="digest-section-header"><button type="button" class="digest-section-toggle" aria-expanded="true" data-section="stuck">Stuck (7+ days in status)</button></h2>
+    <div class="digest-section-body">
+    <p class="digest-stats digest-stats-padded digest-stuck-framing">Tickets below have been in the same status 7+ days. Consider: break down? blocked? remove?</p>
+    <% if (digest.stuck && digest.stuck.length > 0) { %>
+    <table class="digest-table digest-table-stuck" id="stuck-table">
+      <thead>
+        <tr>
+          <th class="sortable">Key <span class="sort-indicator"></span></th>
+          <th class="sortable">Assignee <span class="sort-indicator"></span></th>
+          <th class="sortable">Summary <span class="sort-indicator"></span></th>
+          <th class="sortable">Status <span class="sort-indicator"></span></th>
+          <th class="sortable">Issue type <span class="sort-indicator"></span></th>
+          <th class="sortable sort-numeric sort-initial-desc">Days <span class="sort-indicator"></span></th>
+          <th class="sortable">Priority <span class="sort-indicator"></span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% digest.stuck.forEach(i => { %>
+          <tr>
+            <td class="digest-cell-key"><a href="<%= i.link %>" target="_blank"><%= i.key %></a></td>
+            <td class="digest-cell-avatar-name"><% if (i.avatarUrl) { %><img class="digest-avatar" src="<%= i.avatarUrl %>" alt="" width="20" height="20" /><% } %><%= i.assigneeShort %></td>
+            <td><%= i.summary %></td>
+            <td><%= i.status %></td>
+            <td><%= i.issueType %></td>
+            <td data-sort-numeric="<%= i.daysInStatus %>"><span class="stuck-days-badge <%= i.badgeClass || '' %>"><%= i.daysInStatus %></span></td>
+            <td><span class="stuck-priority stuck-priority-<%= i.priorityLevel %>" title="<%= i.priorityName %>"><%= i.priorityLevel %></span></td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+    <% } else { %>
+    <p class="digest-empty">None.</p>
+    <% } %>
+    </div>
+  </section>
+
   <section class="digest-section digest-section-collapsible" data-section="completed">
     <h2 class="digest-section-header"><button type="button" class="digest-section-toggle" aria-expanded="true" data-section="completed">Completed this sprint</button></h2>
     <div class="digest-section-body">

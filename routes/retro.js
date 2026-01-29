@@ -66,7 +66,7 @@ async function getLastClosedSprint() {
       .sort((a, b) => moment(b.endDate).valueOf() - moment(a.endDate).valueOf());
     const sprint = closed[0];
     if (!sprint?.id) return null;
-    return { id: sprint.id, name: sprint.name };
+    return { id: sprint.id, name: sprint.name, startDate: sprint.startDate, endDate: sprint.endDate };
   } catch (e) {
     debugError('Retro: lastClosedSprint', e?.message);
     return null;
@@ -500,6 +500,180 @@ async function getPRSummary() {
   }
 }
 
+/** Map Jira priority name to H/M/L for display (H=red, M=orange, L=blue). */
+function priorityLevel(priorityName) {
+  if (!priorityName || typeof priorityName !== 'string') return 'M';
+  const n = priorityName.toLowerCase();
+  if (n.includes('high') && !n.includes('low')) return 'H';
+  if (n.includes('low')) return 'L';
+  return 'M';
+}
+
+/** Stuck: incomplete in last closed sprint, in same status 7+ days. No PR fields. */
+async function getStuckData(projectKey, sprint) {
+  if (!projectKey || !sprint?.id) return { stuck: [] };
+  const tz = getTz();
+  const jql = `project = "${projectKey}" AND sprint = ${sprint.id} AND status not in (Done, "Won't Do")`;
+  let issues = [];
+  let startAt = 0;
+  const pageSize = 100;
+  try {
+    do {
+      const r = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}/issue`, {
+        params: { jql, fields: 'key,summary,status,assignee,created,priority,issuetype', startAt, maxResults: pageSize },
+      });
+      const page = r.data?.issues || [];
+      issues = issues.concat(page);
+      startAt += page.length;
+      if (page.length === 0 || startAt >= (r.data?.total || 0)) break;
+    } while (true);
+  } catch (e) {
+    debugError('Retro: stuck fetch', e?.message);
+    return { stuck: [] };
+  }
+
+  if (issues.length === 0) return { stuck: [] };
+
+  const now = moment().tz(tz);
+  const issuesWithChangelog = await Promise.all(
+    issues.map(async (issue) => {
+      const changelogValues = [];
+      let startAtCl = 0;
+      const pageSizeCl = 100;
+      let total = 0;
+      let page = [];
+      do {
+        try {
+          const cr = await jiraClient.get(`/rest/api/3/issue/${issue.key}/changelog`, {
+            params: { startAt: startAtCl, maxResults: pageSizeCl },
+          });
+          page = cr.data?.values || [];
+          total = cr.data?.total != null ? cr.data.total : changelogValues.length + page.length;
+          changelogValues.push(...page);
+          startAtCl += page.length;
+        } catch (_) {
+          break;
+        }
+      } while (startAtCl < total && page.length > 0);
+      return { ...issue, changelog: { histories: changelogValues } };
+    })
+  );
+
+  const stuckRaw = issuesWithChangelog.map((issue) => {
+    const currentStatus = issue.fields?.status?.name || '—';
+    const history = issue.changelog?.histories || [];
+    const statusTransitions = [];
+    history.forEach((record) => {
+      if (!record.items || !Array.isArray(record.items)) return;
+      record.items.forEach((item) => {
+        if (item.field === 'status') {
+          statusTransitions.push({
+            date: moment(record.created),
+            fromStatus: item.fromString,
+            toStatus: item.toString,
+          });
+        }
+      });
+    });
+    statusTransitions.sort((a, b) => a.date.valueOf() - b.date.valueOf());
+
+    let enteredCurrentStatusAt = null;
+    if (statusTransitions.length === 0) {
+      enteredCurrentStatusAt = moment(issue.fields?.created);
+    } else {
+      const first = statusTransitions[0];
+      if (first.fromStatus === currentStatus) {
+        enteredCurrentStatusAt = moment(issue.fields?.created);
+      }
+    }
+    for (const t of statusTransitions) {
+      if (t.toStatus === currentStatus && t.fromStatus !== currentStatus) {
+        enteredCurrentStatusAt = t.date;
+      } else if (t.fromStatus === currentStatus && t.toStatus !== currentStatus) {
+        enteredCurrentStatusAt = null;
+      }
+    }
+    const daysInStatus = enteredCurrentStatusAt ? now.diff(enteredCurrentStatusAt, 'days') : 0;
+
+    const priorityName = (issue.fields?.priority?.name || 'Medium').toString();
+    const level = priorityLevel(priorityName);
+    const issueType = (issue.fields?.issuetype?.name || 'Task').toString();
+    return {
+      key: issue.key,
+      summary: (issue.fields?.summary || '').slice(0, 80),
+      status: currentStatus,
+      issueType,
+      assigneeKey: assigneeDisplay(issue.fields?.assignee),
+      avatarUrl: assigneeAvatar(issue.fields?.assignee),
+      daysInStatus,
+      priorityName,
+      priorityLevel: level,
+      link: `https://${config.jira.host}/browse/${issue.key}`,
+    };
+  }).filter((i) => i.daysInStatus >= 7);
+
+  // Badge color: same thresholds as /slow — grey / yellow / red pill
+  let sprintDurationDays = 14;
+  if (sprint.startDate && sprint.endDate) {
+    const start = moment.tz(sprint.startDate, tz);
+    const end = moment.tz(sprint.endDate, tz);
+    sprintDurationDays = end.diff(start, 'days');
+  }
+  const twoSprintsDays = sprintDurationDays * 2;
+  stuckRaw.forEach((issue) => {
+    if (issue.daysInStatus >= twoSprintsDays) {
+      issue.badgeClass = 'danger';
+    } else if (issue.daysInStatus >= sprintDurationDays) {
+      issue.badgeClass = 'warning';
+    } else {
+      issue.badgeClass = '';
+    }
+  });
+
+  const toResolve = new Set();
+  const keyToAssigneeKey = {};
+  stuckRaw.forEach((i) => {
+    if (i.assigneeKey !== 'Unassigned') {
+      keyToAssigneeKey[i.key] = i.assigneeKey;
+      if (!userCache.get(i.assigneeKey)) toResolve.add(i.assigneeKey);
+    }
+  });
+  const resolved = new Map();
+  for (const id of toResolve) {
+    const hit = userCache.get(id);
+    if (hit) resolved.set(id, { displayName: hit.displayName, avatarUrl: hit.avatarUrl });
+  }
+  await resolveAssigneesViaIssueApi(stuckRaw.map((i) => i.key), keyToAssigneeKey, resolved, jiraClient, config);
+  const stillNeed = [...toResolve].filter((id) => !resolved.has(id));
+  await Promise.all(stillNeed.map(async (id) => {
+    const entry = await resolveAssignee(id, jiraClient, config);
+    resolved.set(id, entry);
+  }));
+
+  const stuck = stuckRaw
+    .map((i) => {
+      const res = resolved.get(i.assigneeKey) || userCache.get(i.assigneeKey);
+      const assignee = res ? res.displayName : i.assigneeKey;
+      const avatarUrl = res ? (res.avatarUrl || i.avatarUrl) : i.avatarUrl;
+      return {
+        key: i.key,
+        summary: i.summary,
+        status: i.status,
+        issueType: i.issueType,
+        assignee,
+        assigneeShort: firstName(assignee),
+        avatarUrl,
+        daysInStatus: i.daysInStatus,
+        badgeClass: i.badgeClass || '',
+        priorityName: i.priorityName,
+        priorityLevel: i.priorityLevel,
+        link: i.link,
+      };
+    })
+    .sort((a, b) => b.daysInStatus - a.daysInStatus);
+  return { stuck };
+}
+
 /** Retro notes: rollover callout only (no per-person completion rates). Sprint stats + bar live in template via digest.creep. */
 function buildRetroNotes(digest) {
   const out = [];
@@ -520,7 +694,7 @@ router.get('/retro', async (req, res) => {
     if (!sprint) {
       return res.status(503).send('No closed sprint found for retro.');
     }
-    const [done, incomplete, backlog, highPriority, creep, sweat, pr] = await Promise.all([
+    const [done, incomplete, backlog, highPriority, creep, sweat, pr, stuck] = await Promise.all([
       getDoneData(projectKey, sprint),
       getIncompleteData(projectKey, sprint),
       getBacklogData(projectKey),
@@ -528,6 +702,7 @@ router.get('/retro', async (req, res) => {
       getCreepData(sprint),
       getSweatData(sprint),
       getPRSummary(),
+      getStuckData(projectKey, sprint),
     ]);
 
     const digest = {
@@ -541,6 +716,7 @@ router.get('/retro', async (req, res) => {
       creep,
       sweat,
       pr,
+      stuck: stuck?.stuck ?? [],
       prOpenDaysThreshold,
       retroNotes: [],
     };

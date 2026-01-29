@@ -268,6 +268,72 @@
   font-weight: 500;
 }
 
+.digest-stuck-framing {
+  font-style: italic;
+  color: var(--text-muted, #6B778C);
+}
+
+/* Days: colored pill with count only (red / yellow / grey) */
+.stuck-days-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #dfe1e6;
+  color: #42526E;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.stuck-days-badge.warning {
+  background: #FFFAE6;
+  color: #BF2600;
+}
+.stuck-days-badge.danger {
+  background: #DE350B;
+  color: white;
+}
+
+.stuck-priority {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.stuck-priority-H {
+  background: #ffcdd2;
+  color: #b71c1c;
+}
+.stuck-priority-M {
+  background: #ffe0b2;
+  color: #e65100;
+}
+.stuck-priority-L {
+  background: #bbdefb;
+  color: #0d47a1;
+}
+
+.digest-table-stuck th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+.digest-table-stuck th.sortable:hover {
+  background: var(--hover-bg, #C1C7D0);
+}
+.digest-table-stuck th .sort-indicator {
+  display: inline-block;
+  margin-left: 4px;
+  color: var(--text-muted, #6B778C);
+  font-size: 0.7em;
+}
+.digest-table-stuck th.sort-asc .sort-indicator::after {
+  content: ' ▲';
+  color: var(--accent, #0052CC);
+}
+.digest-table-stuck th.sort-desc .sort-indicator::after {
+  content: ' ▼';
+  color: var(--accent, #0052CC);
+}
+
 .digest-table a {
   color: var(--accent, #0052CC);
   text-decoration: none;
@@ -379,16 +445,210 @@
   margin-bottom: 4px;
 }
 
+/* Print: 8.5 x 11" letter, no hidden/cutoff columns, readable for print or email */
 @media print {
+  @page {
+    size: 8.5in 11in;
+    margin: 0.5in;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body {
+    background: white !important;
+    color: #000 !important;
+  }
+
   .nav-wrapper,
-  #htmx-loading {
+  #htmx-loading,
+  .digest-section-toggle::after {
     display: none !important;
   }
-  .digest-page {
-    padding: 0;
+
+  .container {
+    max-width: 100% !important;
+    padding: 0 !important;
   }
+
+  .digest-page {
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .digest-header {
+    margin-bottom: 12pt;
+    padding-bottom: 8pt;
+    border-bottom: 1pt solid #333;
+  }
+
+  .digest-header h1 {
+    font-size: 16pt !important;
+    color: #000 !important;
+  }
+
+  .digest-meta,
+  .digest-sprint,
+  .generated-at {
+    font-size: 9pt !important;
+    color: #333 !important;
+  }
+
+  /* Expand all sections when printing */
+  .digest-section-collapsible.digest-section--collapsed .digest-section-body {
+    display: block !important;
+  }
+
+  .digest-section-collapsible .digest-section-toggle {
+    cursor: default;
+    border-bottom: 1pt solid #333;
+    padding-bottom: 4pt;
+    margin-bottom: 8pt;
+  }
+
   .digest-section {
     break-inside: avoid;
-    box-shadow: none;
+    box-shadow: none !important;
+    border: 1pt solid #ccc !important;
+    background: white !important;
+    padding: 12pt !important;
+    margin-bottom: 14pt !important;
+  }
+
+  .digest-section h2,
+  .digest-section-header .digest-section-toggle {
+    font-size: 11pt !important;
+    color: #000 !important;
+    margin-bottom: 6pt !important;
+  }
+
+  .digest-stats,
+  .digest-scope-stats,
+  .digest-stuck-framing {
+    font-size: 9pt !important;
+    color: #333 !important;
+  }
+
+  .digest-scope-stats dt {
+    font-weight: 600;
+  }
+
+  /* Tables: fit width, wrap text, no cutoff */
+  .digest-table {
+    width: 100% !important;
+    max-width: 100% !important;
+    font-size: 8pt !important;
+    border: 1pt solid #333 !important;
+    box-shadow: none !important;
+    table-layout: fixed !important;
+  }
+
+  .digest-table thead th {
+    background: #e8e8e8 !important;
+    color: #000 !important;
+    padding: 4pt 6pt !important;
+    font-size: 7pt !important;
+    text-transform: uppercase;
+    border-bottom: 1pt solid #333 !important;
+  }
+
+  .digest-table td {
+    padding: 4pt 6pt !important;
+    border-bottom: 0.5pt solid #ccc !important;
+    overflow: visible !important;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+
+  .digest-table .digest-cell-key {
+    width: 8%;
+  }
+
+  .digest-table .digest-cell-avatar-name {
+    width: 12%;
+  }
+
+  .digest-table td:nth-child(3) {
+    width: auto; /* Summary: use remaining space */
+  }
+
+  .digest-table-stuck td:nth-child(3) {
+    width: 22%; /* Summary */
+  }
+
+  .digest-table-stuck td:nth-child(4) {
+    width: 10%; /* Status */
+  }
+
+  .digest-table-stuck td:nth-child(5) {
+    width: 10%; /* Issue type */
+  }
+
+  .digest-table-stuck td:nth-child(6) {
+    width: 6%; /* Days */
+  }
+
+  .digest-table-stuck td:nth-child(7) {
+    width: 6%; /* Priority */
+  }
+
+  .digest-table a {
+    color: #000 !important;
+    text-decoration: underline;
+  }
+
+  /* Don't show full URLs in print — key/label only */
+  .digest-page a[href]::after {
+    content: none !important;
+  }
+
+  .digest-avatar {
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  /* Priority badges keep color for print */
+  .stuck-priority-H {
+    background: #ffcdd2 !important;
+    color: #b71c1c !important;
+    border: 0.5pt solid #b71c1c;
+  }
+
+  .stuck-priority-M {
+    background: #ffe0b2 !important;
+    color: #e65100 !important;
+    border: 0.5pt solid #e65100;
+  }
+
+  .stuck-priority-L {
+    background: #bbdefb !important;
+    color: #0d47a1 !important;
+    border: 0.5pt solid #0d47a1;
+  }
+
+  /* Creep bar: keep visible, compact */
+  .creep-visual {
+    margin: 8pt 0 !important;
+  }
+
+  .creep-bar {
+    height: 18pt !important;
+    border: 0.5pt solid #333 !important;
+  }
+
+  .creep-legend {
+    font-size: 7pt !important;
+    margin-top: 4pt !important;
+  }
+
+  .creep-dot {
+    width: 8px !important;
+    height: 8px !important;
+  }
+
+  .digest-empty {
+    color: #666 !important;
   }
 }
