@@ -8,8 +8,10 @@
       <p style="margin: 0 0 10px 0;"><%= c.message %></p>
     <% }); %>
   <% } %>
+  <% if (digest.creepTakeaway) { %>
+  <p style="margin: 0 0 10px 0;"><strong><%= digest.creepTakeaway %></strong></p>
+  <% } %>
   <% if (digest.creep) { %>
-  <p style="margin: 0 0 6px 0;"><strong><%= digest.creep.sprintName %></strong> — sprint stats</p>
   <p style="margin: 0 0 8px 0;">Started with: <strong><%= digest.creep.startedWith %></strong>. Ended with: <strong><%= digest.creep.endedWith %></strong>. Creep (net): <%= digest.creep.creepNet >= 0 ? '+' : '' %><%= digest.creep.creepNet %> (<%= digest.creep.addedCount %> added, <%= digest.creep.removedCount %> removed).</p>
   <p style="margin: 0 0 8px 0;">% complete (of ended): <strong><%= digest.creep.pctCompleteEnded %>%</strong>. % complete (of started): <strong><%= digest.creep.pctCompleteStarted %>%</strong>.</p>
   <% } %>

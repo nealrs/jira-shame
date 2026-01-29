@@ -678,11 +678,36 @@ async function getStuckData(projectKey, sprint) {
   return { stuck };
 }
 
-/** Retro notes: rollover callout only (no per-person completion rates). Sprint stats + bar live in template via digest.creep. */
+/** One-line takeaway for creep (scope + completion). */
+function buildCreepTakeaway(creep) {
+  if (!creep || creep.endedWith == null) return null;
+  const netVal = creep.creepNet >= 0 ? creep.creepNet : Math.abs(creep.creepNet);
+  const scopeLine = creep.creepNet >= 0 ? `grew by ${netVal}` : `shrank by ${netVal}`;
+  return `Sprint scope ${scopeLine}; you completed ${creep.pctCompleteEnded}% of tickets, based on end of sprint count.`;
+}
+
+/** Retro notes: coachable callouts + incomplete/stuck. Sprint stats + bar live in template via digest.creep. */
 function buildRetroNotes(digest) {
   const out = [];
   if (digest.incomplete?.total > 0) {
-    out.push({ type: 'summary', message: `${digest.incomplete.total} ticket(s) Carry Forward / Incomplete.` });
+    out.push({ type: 'summary', message: `${digest.incomplete.total} ticket(s) Carry Forward / Incomplete.`, linkHref: '#section-incomplete', linkLabel: 'See Incomplete section' });
+  }
+  const stuckCount = digest.stuck?.length ?? 0;
+  if (stuckCount > 0 && digest.incomplete?.total > 0) {
+    out.push({ type: 'focus', message: `${stuckCount} of those incomplete have been in the same status 7+ days.`, linkHref: '#section-stuck', linkLabel: 'See Stuck section' });
+  }
+  if (digest.highPriority?.length > 0) {
+    out.push({ type: 'focus', message: `${digest.highPriority.length} high-priority ticket(s) still open at sprint end.`, linkHref: '#section-high-priority', linkLabel: 'See High priority section' });
+  }
+  const sweatGapThreshold = digest.coachingSweatGapPercent ?? sweatGapPercent;
+  const highGapCount = digest.sweat?.rows?.filter((r) => r.gapPct >= sweatGapThreshold).length ?? 0;
+  if (highGapCount > 0) {
+    const peopleWord = highGapCount === 1 ? 'person' : 'people';
+    out.push({ type: 'focus', message: `${highGapCount} ${peopleWord} had a completion gap ≥ ${sweatGapThreshold}%. Consider: swarming, scope help, or carry-over planning.`, linkHref: '#section-sweat', linkLabel: 'See Sweat section' });
+  }
+  if (digest.load?.imbalanceCallout) {
+    const c = digest.load.imbalanceCallout;
+    out.push({ type: 'focus', message: `Load imbalance: ${c.name} had ${c.count} tickets (~${loadImbalanceRatio}× team avg). Consider rebalancing next sprint.` });
   }
   return out;
 }
@@ -698,13 +723,14 @@ router.get('/retro', async (req, res) => {
     if (!sprint) {
       return res.status(503).send('No closed sprint found for retro.');
     }
-    const [done, incomplete, backlog, highPriority, creep, sweat, pr, stuck] = await Promise.all([
+    const [done, incomplete, backlog, highPriority, creep, sweat, load, pr, stuck] = await Promise.all([
       getDoneData(projectKey, sprint),
       getIncompleteData(projectKey, sprint),
       getBacklogData(projectKey),
       getHighPriorityData(projectKey, sprint),
       getCreepData(sprint),
       getSweatData(sprint),
+      getLoadData(projectKey, sprint),
       getPRSummary(),
       getStuckData(projectKey, sprint),
     ]);
@@ -719,11 +745,14 @@ router.get('/retro', async (req, res) => {
       highPriority,
       creep,
       sweat,
+      load,
       pr,
       stuck: stuck?.stuck ?? [],
       prOpenDaysThreshold,
+      coachingSweatGapPercent: sweatGapPercent,
       retroNotes: [],
     };
+    digest.creepTakeaway = buildCreepTakeaway(digest.creep);
     digest.retroNotes = buildRetroNotes(digest);
 
     if (formatHtml) {

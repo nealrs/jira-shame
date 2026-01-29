@@ -7,15 +7,21 @@
     </div>
   </header>
 
-  <section class="digest-section digest-section-collapsible digest-callouts" data-section="retro-notes">
+  <section class="digest-section digest-section-collapsible digest-callouts" id="section-retro-notes" data-section="retro-notes">
     <h2 class="digest-section-header"><button type="button" class="digest-section-toggle" aria-expanded="true" data-section="retro-notes">Retro notes</button></h2>
     <div class="digest-section-body retro-notes-stats">
       <% if (digest.retroNotes && digest.retroNotes.length > 0) { %>
-        <% digest.retroNotes.forEach(c => { %>
-          <p class="digest-stats digest-stats-padded retro-rollover"><%= c.message %></p>
-        <% }); %>
+        <p class="retro-coaching-label">Focus</p>
+        <ul class="retro-notes-list">
+          <% digest.retroNotes.forEach(c => { %>
+            <li class="retro-note-item"><%= c.message %><% if (c.linkHref && c.linkLabel) { %> <a href="<%= c.linkHref %>" class="retro-note-link" aria-label="<%= c.linkLabel %>" title="<%= c.linkLabel %>"><span class="retro-note-link-icon" aria-hidden="true">↗</span></a><% } %></li>
+          <% }); %>
+        </ul>
       <% } %>
       <% if (digest.creep) { %>
+        <% if (digest.creepTakeaway) { %>
+          <p class="digest-stats digest-stats-padded creep-takeaway"><%= digest.creepTakeaway %></p>
+        <% } %>
         <dl class="digest-scope-stats">
           <dt>Started with</dt><dd><%= digest.creep.startedWith %></dd>
           <dt>Ended with</dt><dd><%= digest.creep.endedWith %></dd>
@@ -43,14 +49,14 @@
   </section>
 
   <% if (digest.sweat && digest.sweat.rows && digest.sweat.rows.length > 0) { %>
-  <section class="digest-section digest-section-collapsible" data-section="sweat">
+  <section class="digest-section digest-section-collapsible" id="section-sweat" data-section="sweat">
     <h2 class="digest-section-header"><button type="button" class="digest-section-toggle" aria-expanded="true" data-section="sweat">Sweat (assigned vs completed)</button></h2>
     <div class="digest-section-body">
     <table class="digest-table">
       <thead><tr><th class="sortable">Assignee <span class="sort-indicator"></span></th><th class="sortable sort-numeric">Assigned <span class="sort-indicator"></span></th><th class="sortable sort-numeric">Completed <span class="sort-indicator"></span></th><th class="sortable sort-numeric">Gap % <span class="sort-indicator"></span></th></tr></thead>
       <tbody>
         <% digest.sweat.rows.forEach(r => { %>
-          <tr>
+          <tr class="<%= r.gapPct >= (digest.coachingSweatGapPercent != null ? digest.coachingSweatGapPercent : 30) ? 'sweat-row-high-gap' : '' %>">
             <td class="digest-cell-avatar-name"><% if (r.avatarUrl) { %><img class="digest-avatar" src="<%= r.avatarUrl %>" alt="" width="20" height="20" /><% } %><%= r.assigneeShort %></td>
             <td data-sort-numeric="<%= r.assigned %>"><%= r.assigned %></td>
             <td data-sort-numeric="<%= r.completed %>"><%= r.completed %></td>
@@ -63,8 +69,8 @@
   </section>
   <% } %>
 
-  <section class="digest-section digest-section-collapsible" data-section="high-priority">
-    <h2 class="digest-section-header"><button type="button" class="digest-section-toggle" aria-expanded="true" data-section="high-priority">High priority</button></h2>
+  <section class="digest-section digest-section-collapsible" id="section-high-priority" data-section="high-priority">
+    <h2 class="digest-section-header"><button type="button" class="digest-section-toggle" aria-expanded="true" data-section="high-priority">High priority (<%= digest.highPriority ? digest.highPriority.length : 0 %>)</button></h2>
     <div class="digest-section-body">
     <% if (digest.highPriority && digest.highPriority.length > 0) { %>
     <table class="digest-table">
@@ -87,8 +93,8 @@
     </div>
   </section>
 
-  <section class="digest-section digest-section-collapsible" data-section="stuck">
-    <h2 class="digest-section-header"><button type="button" class="digest-section-toggle" aria-expanded="true" data-section="stuck">Stuck (7+ days in status)</button></h2>
+  <section class="digest-section digest-section-collapsible" id="section-stuck" data-section="stuck">
+    <h2 class="digest-section-header"><button type="button" class="digest-section-toggle" aria-expanded="true" data-section="stuck">Stuck (7+ days in status) (<%= digest.stuck ? digest.stuck.length : 0 %>)</button></h2>
     <div class="digest-section-body">
     <p class="digest-stats digest-stats-padded digest-stuck-framing">Tickets below have been in the same status 7+ days. Consider: break down? blocked? remove?</p>
     <% if (digest.stuck && digest.stuck.length > 0) { %>
@@ -145,7 +151,7 @@
     </div>
   </section>
 
-  <section class="digest-section digest-section-collapsible" data-section="incomplete">
+  <section class="digest-section digest-section-collapsible" id="section-incomplete" data-section="incomplete">
     <h2 class="digest-section-header"><button type="button" class="digest-section-toggle" aria-expanded="true" data-section="incomplete">Carry Forward / Incomplete (<%= digest.incomplete.total %>)</button></h2>
     <div class="digest-section-body">
     <% if (digest.incomplete && digest.incomplete.incomplete && digest.incomplete.incomplete.length > 0) { %>

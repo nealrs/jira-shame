@@ -184,6 +184,42 @@
   padding-left: 0;
 }
 
+.retro-coaching-label {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--text-primary, #172B4D);
+  margin: 0 0 8px 0;
+}
+
+.retro-note-item {
+  margin-bottom: 8px;
+  font-size: 0.9375rem;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.retro-note-link {
+  color: var(--accent, #0052CC);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.retro-note-link:hover {
+  text-decoration: underline;
+}
+
+.retro-note-link-icon {
+  font-size: 0.9em;
+  opacity: 0.9;
+}
+
+.digest-table tbody tr.sweat-row-high-gap {
+  background: #FFF4E5 !important;
+  border-left: 3px solid #FF991F;
+}
+
 .digest-callout {
   padding: 10px 14px;
   border-radius: 8px;

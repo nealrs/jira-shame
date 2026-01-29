@@ -67,7 +67,7 @@ const config = {
   digest: {
     highPriorityNames: ['Highest', 'High'],
     coachingBacklogAgeWeeksThreshold: 12,
-    coachingSweatGapPercent: 30,
+    coachingSweatGapPercent: 40,
     coachingLoadImbalanceRatio: 2,
     coachingPROpenDaysThreshold: 5,
   },
