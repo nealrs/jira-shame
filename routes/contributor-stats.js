@@ -20,7 +20,7 @@ try {
   getTz = h.getTz;
 } catch (e) {
   const axios = require('axios');
-  BOARD_ID = process.env.BOARD_ID || 7;
+  BOARD_ID = process.env.JIRA_BOARD_ID || 7;
   config = { jira: { host: process.env.JIRA_HOST || '' } };
   isHtmxRequest = (req) => !!(req.headers && req.headers['hx-request']);
   jiraClient = axios.create({

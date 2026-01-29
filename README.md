@@ -129,7 +129,7 @@ Edit `.env` with your `Jira` and GitHub credentials:
 JIRA_HOST=your-domain.atlassian.net
 JIRA_EMAIL=your-email@example.com
 JIRA_API_TOKEN=your-api-token-here
-BOARD_ID=7
+JIRA_BOARD_ID=7
 GITHUB_TOKEN=your-github-personal-access-token
 GITHUB_ORG=your-github-org-name
 PORT=3000
@@ -141,7 +141,7 @@ DEBUG=true
 - `JIRA_HOST`: Your `Jira` instance hostname (without `https://`)
 - `JIRA_EMAIL`: Your `Jira` account email address
 - `JIRA_API_TOKEN`: The API token you created in step 1
-- `BOARD_ID`: Your `Jira` board ID (defaults to `7`)
+- `JIRA_BOARD_ID`: Your `Jira` board ID (defaults to `7`)
 
 **Optional Variables:**
 - `GITHUB_TOKEN`: Your GitHub personal access token (required for `/pr`)
@@ -151,11 +151,25 @@ DEBUG=true
 - `DEBUG`: Set to `true` to enable debug logging; set to `false` to silence debug logs
 - `TZ`: Timezone for sprint dates and reports (e.g. `America/New_York`). Defaults to `America/New_York`.
 
-#### Docker Compose note: `JIRA_BOARD_ID`
+#### Docker Compose
 
-`docker-compose.yaml` maps `BOARD_ID` inside the container from `JIRA_BOARD_ID` on your host:
+`docker-compose.yaml` and `docker-compose.prod.yaml` pass `JIRA_BOARD_ID` through to the container. Use the same variable name in your `.env` for local and Docker runs.
 
-- Set **either** `BOARD_ID` (for local runs) **or** `JIRA_BOARD_ID` (for docker-compose), or set both to the same value.
+#### Retro coaching thresholds (not in `.env`)
+
+The **Retro** report uses coaching thresholds to highlight focus areas (sweat gap, load imbalance, high-priority open, etc.). These are **not** configurable via environment variables. To change them, edit `config/index.js` and restart the app.
+
+Under `config.digest` you’ll find:
+
+| Key | Default | Purpose |
+|-----|---------|--------|
+| `highPriorityNames` | `['Highest', 'High']` | Jira priority names treated as “high priority” for the Retro focus note and High priority section. |
+| `coachingSweatGapPercent` | `40` | Completion gap % (assigned but not completed) above which a person is called out in Focus and the Sweat row is highlighted. |
+| `coachingLoadImbalanceRatio` | `2` | Ratio of one person’s ticket count to team average above which a “Load imbalance” Focus note is shown. |
+| `coachingBacklogAgeWeeksThreshold` | `12` | Backlog median age (weeks) above which a backlog-age note would be shown (currently unused in the Retro UI). |
+| `coachingPROpenDaysThreshold` | `5` | Used for PR-related coaching (e.g. “open over 5 days”); PR section is currently commented out on Retro. |
+
+After editing `config/index.js`, restart the server for changes to take effect.
 
 ### 3. Install Dependencies
 
@@ -298,7 +312,7 @@ The application follows a modular architecture:
 
 ### 0 Tickets Returned
 
-- Verify the `BOARD_ID` is correct
+- Verify the `JIRA_BOARD_ID` is correct
 - Check that there are tickets in the current sprint
 - Ensure tickets have been in their current status for at least 7 days
 - Verify the status names match exactly (case-sensitive)

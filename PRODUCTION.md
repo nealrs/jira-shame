@@ -11,7 +11,7 @@ This guide covers deploying Jira Shame to production environments.
    export JIRA_HOST=your-domain.atlassian.net
    export JIRA_EMAIL=your-email@example.com
    export JIRA_API_TOKEN=your-api-token
-   export BOARD_ID=7
+   export JIRA_BOARD_ID=7
    export NODE_ENV=production
    export DEBUG=false
    export PORT=3000
@@ -69,7 +69,7 @@ This guide covers deploying Jira Shame to production environments.
 - `JIRA_API_TOKEN` - Your Jira API token
 
 ### Optional
-- `BOARD_ID` - Jira board ID (default: `7`)
+- `JIRA_BOARD_ID` - Jira board ID (default: `7`)
 - `PORT` - Server port (default: `3000`)
 - `NODE_ENV` - Set to `production` for production mode
 - `DEBUG` - Set to `false` to disable debug logging (defaults to `false` when `NODE_ENV=production`)

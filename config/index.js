@@ -13,7 +13,7 @@ const requiredVars = {
 
 // Optional environment variables with defaults
 const optionalVars = {
-  BOARD_ID: process.env.BOARD_ID || 7,
+  JIRA_BOARD_ID: process.env.JIRA_BOARD_ID || 7,
   PORT: process.env.PORT || 3000,
   NODE_ENV: process.env.NODE_ENV || 'development',
   DEBUG: process.env.DEBUG ? process.env.DEBUG === 'true' : process.env.NODE_ENV !== 'production',
@@ -43,7 +43,7 @@ const config = {
     host: requiredVars.JIRA_HOST,
     email: requiredVars.JIRA_EMAIL,
     apiToken: requiredVars.JIRA_API_TOKEN,
-    boardId: parseInt(optionalVars.BOARD_ID, 10),
+    boardId: parseInt(optionalVars.JIRA_BOARD_ID, 10),
     // Target statuses for tracking
     targetStatuses: ['To Do', 'Ready for Development', 'In Progress', 'In Review'],
   },
@@ -82,7 +82,7 @@ if (!config.github.token || !config.github.org) {
 
 // Validate board ID
 if (isNaN(config.jira.boardId) || config.jira.boardId <= 0) {
-  console.error('❌ Invalid BOARD_ID. Must be a positive number.');
+  console.error('❌ Invalid JIRA_BOARD_ID. Must be a positive number.');
   process.exit(1);
 }
 
