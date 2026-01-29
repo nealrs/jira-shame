@@ -464,6 +464,7 @@
 
   .nav-wrapper,
   #htmx-loading,
+  .app-footer,
   .digest-section-toggle::after {
     display: none !important;
   }
@@ -481,7 +482,6 @@
   .digest-header {
     margin-bottom: 12pt;
     padding-bottom: 8pt;
-    border-bottom: 1pt solid #333;
   }
 
   .digest-header h1 {
@@ -503,7 +503,6 @@
 
   .digest-section-collapsible .digest-section-toggle {
     cursor: default;
-    border-bottom: 1pt solid #333;
     padding-bottom: 4pt;
     margin-bottom: 8pt;
   }
@@ -511,7 +510,8 @@
   .digest-section {
     break-inside: avoid;
     box-shadow: none !important;
-    border: 1pt solid #ccc !important;
+    border: none !important;
+    border-radius: 0 !important;
     background: white !important;
     padding: 12pt !important;
     margin-bottom: 14pt !important;
@@ -540,7 +540,7 @@
     width: 100% !important;
     max-width: 100% !important;
     font-size: 8pt !important;
-    border: 1pt solid #333 !important;
+    border: none !important;
     box-shadow: none !important;
     table-layout: fixed !important;
   }
@@ -551,12 +551,10 @@
     padding: 4pt 6pt !important;
     font-size: 7pt !important;
     text-transform: uppercase;
-    border-bottom: 1pt solid #333 !important;
   }
 
   .digest-table td {
     padding: 4pt 6pt !important;
-    border-bottom: 0.5pt solid #ccc !important;
     overflow: visible !important;
     word-wrap: break-word;
     overflow-wrap: break-word;
@@ -613,19 +611,16 @@
   .stuck-priority-H {
     background: #ffcdd2 !important;
     color: #b71c1c !important;
-    border: 0.5pt solid #b71c1c;
   }
 
   .stuck-priority-M {
     background: #ffe0b2 !important;
     color: #e65100 !important;
-    border: 0.5pt solid #e65100;
   }
 
   .stuck-priority-L {
     background: #bbdefb !important;
     color: #0d47a1 !important;
-    border: 0.5pt solid #0d47a1;
   }
 
   /* Creep bar: keep visible, compact */
@@ -635,7 +630,6 @@
 
   .creep-bar {
     height: 18pt !important;
-    border: 0.5pt solid #333 !important;
   }
 
   .creep-legend {

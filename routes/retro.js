@@ -121,7 +121,7 @@ async function getDoneData(projectKey, sprint) {
   if (!projectKey || !sprint) return { count: 0, issues: [], periodLabel: sprint?.name || 'Sprint' };
   const jql = `project = "${projectKey}" AND sprint = ${sprint.id} AND status in (Done, "Won't Do")`;
   try {
-    const r = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}/issue`, { params: { jql, fields: 'key,summary,assignee,resolutiondate', maxResults: 100 } });
+    const r = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}/issue`, { params: { jql, fields: 'key,summary,assignee,resolutiondate,issuetype', maxResults: 100 } });
     const raw = (r.data?.issues || []).slice(0, 50);
     const toResolve = new Set();
     const keyToAssigneeKey = {};
@@ -157,6 +157,7 @@ async function getDoneData(projectKey, sprint) {
         assignee,
         assigneeShort: firstName(assignee),
         avatarUrl,
+        issueType: (i.fields?.issuetype?.name || 'Task').toString(),
         link: `https://${config.jira.host}/browse/${i.key}`,
       };
     });
@@ -176,7 +177,7 @@ async function getIncompleteData(projectKey, sprint) {
   const pageSize = 100;
   try {
     do {
-      const r = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}/issue`, { params: { jql, fields: 'key,summary,status,assignee,updated', startAt, maxResults: pageSize } });
+      const r = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}/issue`, { params: { jql, fields: 'key,summary,status,assignee,updated,issuetype', startAt, maxResults: pageSize } });
       const issues = r.data?.issues || [];
       issues.forEach(i => {
         const updated = i.fields?.updated ? moment(i.fields.updated) : moment();
@@ -190,6 +191,7 @@ async function getIncompleteData(projectKey, sprint) {
           assignee: assigneeKey,
           assigneeShort: firstName(assigneeKey),
           avatarUrl: assigneeAvatar(i.fields?.assignee),
+          issueType: (i.fields?.issuetype?.name || 'Task').toString(),
           daysNotUpdated: days,
           link: `https://${config.jira.host}/browse/${i.key}`,
         });
@@ -302,7 +304,7 @@ async function getHighPriorityData(projectKey, sprint) {
   const names = highPriorityNames.map(n => `"${n}"`).join(',');
   const jql = `project = "${projectKey}" AND sprint = ${sprint.id} AND priority in (${names})`;
   try {
-    const r = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}/issue`, { params: { jql, fields: 'key,summary,assignee,status,priority', maxResults: 50 } });
+    const r = await jiraClient.get(`/rest/agile/1.0/board/${BOARD_ID}/issue`, { params: { jql, fields: 'key,summary,assignee,status,priority,issuetype', maxResults: 50 } });
     const raw = (r.data?.issues || []).map(i => {
       const assigneeKey = assigneeDisplay(i.fields?.assignee);
       return {
@@ -311,6 +313,7 @@ async function getHighPriorityData(projectKey, sprint) {
         assigneeKey,
         avatarUrl: assigneeAvatar(i.fields?.assignee),
         status: i.fields?.status?.name || '—',
+        issueType: (i.fields?.issuetype?.name || 'Task').toString(),
         link: `https://${config.jira.host}/browse/${i.key}`,
       };
     });
@@ -344,6 +347,7 @@ async function getHighPriorityData(projectKey, sprint) {
         assigneeShort: firstName(assignee),
         avatarUrl,
         status: i.status,
+        issueType: i.issueType,
         link: i.link,
       };
     });

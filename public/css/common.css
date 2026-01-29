@@ -544,6 +544,7 @@ h1 {
 .issue-type-badge.task { background: #DEEBFF; color: #0052CC; }
 .issue-type-badge.epic { background: #EAE6FF; color: #403294; }
 .issue-type-badge.subtask { background: #F4F5F7; color: #42526E; }
+.issue-type-badge.sub-task { background: #F4F5F7; color: #42526E; }
 .issue-type-badge.spike { background: #FFF4E6; color: #974F00; }
 .issue-type-badge.idea { background: #FFF4E6; color: #974F00; }
 

@@ -69,7 +69,7 @@
     <div class="digest-section-body">
     <% if (digest.highPriority && digest.highPriority.length > 0) { %>
     <table class="digest-table">
-      <thead><tr><th>Key</th><th>Assignee</th><th>Summary</th><th>Status</th></tr></thead>
+      <thead><tr><th>Key</th><th>Assignee</th><th>Summary</th><th>Status</th><th>Issue type</th></tr></thead>
       <tbody>
         <% digest.highPriority.forEach(i => { %>
           <tr>
@@ -77,6 +77,7 @@
             <td class="digest-cell-avatar-name"><% if (i.avatarUrl) { %><img class="digest-avatar" src="<%= i.avatarUrl %>" alt="" width="20" height="20" /><% } %><%= i.assigneeShort %></td>
             <td><%= i.summary %></td>
             <td><%= i.status %></td>
+            <td><span class="issue-type-badge <%= (i.issueType || '').toLowerCase().replace(/-/g, '') %>"><%= i.issueType %></span></td>
           </tr>
         <% }); %>
       </tbody>
@@ -111,7 +112,7 @@
             <td class="digest-cell-avatar-name"><% if (i.avatarUrl) { %><img class="digest-avatar" src="<%= i.avatarUrl %>" alt="" width="20" height="20" /><% } %><%= i.assigneeShort %></td>
             <td><%= i.summary %></td>
             <td><%= i.status %></td>
-            <td><%= i.issueType %></td>
+            <td><span class="issue-type-badge <%= (i.issueType || '').toLowerCase().replace(/-/g, '') %>"><%= i.issueType %></span></td>
             <td data-sort-numeric="<%= i.daysInStatus %>"><span class="stuck-days-badge <%= i.badgeClass || '' %>"><%= i.daysInStatus %></span></td>
             <td><span class="stuck-priority stuck-priority-<%= i.priorityLevel %>" title="<%= i.priorityName %>"><%= i.priorityLevel %></span></td>
           </tr>
@@ -130,13 +131,14 @@
     <p class="digest-stats digest-stats-padded"><strong><%= digest.progress.count %></strong> completed in <%= digest.progress.periodLabel %>.</p>
     <% if (digest.progress.issues && digest.progress.issues.length > 0) { %>
     <table class="digest-table digest-table-people">
-      <thead><tr><th>Key</th><th>Assignee</th><th>Summary</th></tr></thead>
+      <thead><tr><th>Key</th><th>Assignee</th><th>Summary</th><th>Issue type</th></tr></thead>
       <tbody>
         <% digest.progress.issues.forEach(issue => { %>
           <tr>
             <td class="digest-cell-key"><a href="<%= issue.link %>" target="_blank"><%= issue.key %></a></td>
             <td class="digest-cell-avatar-name"><% if (issue.avatarUrl) { %><img class="digest-avatar" src="<%= issue.avatarUrl %>" alt="" width="20" height="20" /><% } %><%= issue.assigneeShort %></td>
             <td><%= issue.summary.slice(0, 50) %><%= issue.summary.length > 50 ? '…' : '' %></td>
+            <td><span class="issue-type-badge <%= (issue.issueType || '').toLowerCase().replace(/-/g, '') %>"><%= issue.issueType %></span></td>
           </tr>
         <% }); %>
       </tbody>
@@ -151,7 +153,7 @@
     <p class="digest-stats digest-stats-padded"><strong><%= digest.incomplete.total %></strong> issues not Done in <%= digest.sprintName %>.</p>
     <% if (digest.incomplete && digest.incomplete.incomplete && digest.incomplete.incomplete.length > 0) { %>
     <table class="digest-table digest-table-people">
-      <thead><tr><th>Key</th><th>Assignee</th><th>Summary</th><th>Status</th></tr></thead>
+      <thead><tr><th>Key</th><th>Assignee</th><th>Summary</th><th>Status</th><th>Issue type</th></tr></thead>
       <tbody>
         <% digest.incomplete.incomplete.forEach(i => { %>
           <tr>
@@ -159,6 +161,7 @@
             <td class="digest-cell-avatar-name"><% if (i.avatarUrl) { %><img class="digest-avatar" src="<%= i.avatarUrl %>" alt="" width="20" height="20" /><% } %><%= i.assigneeShort %></td>
             <td><%= i.summary %></td>
             <td><%= i.status %></td>
+            <td><span class="issue-type-badge <%= (i.issueType || '').toLowerCase().replace(/-/g, '') %>"><%= i.issueType %></span></td>
           </tr>
         <% }); %>
       </tbody>
