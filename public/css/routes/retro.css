@@ -694,7 +694,8 @@
   .nav-wrapper,
   #htmx-loading,
   .app-footer,
-  .digest-section-toggle::after {
+  .digest-section-toggle::after,
+  .retro-note-link {
     display: none !important;
   }
 
@@ -737,13 +738,30 @@
   }
 
   .digest-section {
-    break-inside: avoid;
-    box-shadow: none !important;
     border: none !important;
     border-radius: 0 !important;
     background: white !important;
     padding: 12pt !important;
     margin-bottom: 14pt !important;
+  }
+
+  /* Keep sections together on page, but not the first (avoids mostly blank first page) */
+  .digest-section:not(:first-of-type) {
+    break-inside: avoid;
+  }
+
+  /* Stack stats + chart columns on print (no side-by-side) */
+  .retro-creep-layout {
+    flex-direction: column !important;
+    gap: 16pt !important;
+  }
+
+  .retro-creep-stats,
+  .retro-creep-chart {
+    flex: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
   }
 
   .digest-section h2,
@@ -764,7 +782,7 @@
     font-weight: 600;
   }
 
-  /* Tables: fit width, wrap text, no cutoff */
+  /* Tables: fit width, wrap text, no cutoff, no background colors */
   .digest-table {
     width: 100% !important;
     max-width: 100% !important;
@@ -772,10 +790,17 @@
     border: none !important;
     box-shadow: none !important;
     table-layout: fixed !important;
+    background: transparent !important;
+  }
+
+  .digest-table thead th,
+  .digest-table tbody tr,
+  .digest-table tbody tr:nth-child(even),
+  .digest-table tbody tr.sweat-row-high-gap {
+    background: transparent !important;
   }
 
   .digest-table thead th {
-    background: #e8e8e8 !important;
     color: #000 !important;
     padding: 4pt 6pt !important;
     font-size: 7pt !important;
