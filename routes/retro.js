@@ -678,6 +678,196 @@ async function getStuckData(projectKey, sprint) {
   return { stuck };
 }
 
+/**
+ * Burndown/burnup: daily scope and completed counts (ticket count, not points).
+ * Tries GreenHopper scopechangeburndownchart; on failure, reconstructs from resolution dates + changelog.
+ */
+async function getBurndownData(sprint, projectKey) {
+  const tz = getTz();
+  const start = sprint.startDate ? moment.tz(sprint.startDate, tz).startOf('day') : null;
+  const end = sprint.endDate ? moment.tz(sprint.endDate, tz).endOf('day') : null;
+  if (!start || !end || !end.isAfter(start)) return null;
+
+  try {
+    const url = `/rest/greenhopper/1.0/rapid/charts/scopechangeburndownchart?rapidViewId=${BOARD_ID}&sprintId=${sprint.id}`;
+    const res = await jiraClient.get(url, { timeout: 8000, validateStatus: (s) => s === 200 });
+    const raw = res.data?.contents ?? res.data;
+    if (raw && Array.isArray(raw.series)) {
+      const categories = raw.categories || raw.xAxis?.categories || [];
+      const scopeSeries = raw.series.find((s) => (s.name || '').toLowerCase().includes('scope') || (s.name || '').toLowerCase().includes('total')) || raw.series[0];
+      const completedSeries = raw.series.find((s) => (s.name || '').toLowerCase().includes('complet') || (s.name || '').toLowerCase().includes('done')) || raw.series[1];
+      if (scopeSeries && Array.isArray(scopeSeries.data) && scopeSeries.data.length) {
+        const daily = scopeSeries.data.map((scopeVal, i) => {
+          const scope = typeof scopeVal === 'number' ? scopeVal : (scopeVal?.y ?? scopeVal);
+          const completed = completedSeries && Array.isArray(completedSeries.data) && completedSeries.data[i] != null
+            ? (typeof completedSeries.data[i] === 'number' ? completedSeries.data[i] : (completedSeries.data[i]?.y ?? completedSeries.data[i]))
+            : 0;
+          return {
+            dayIndex: i,
+            date: categories[i] || start.clone().add(i, 'days').format('YYYY-MM-DD'),
+            scope,
+            completed,
+            remaining: Math.max(0, (scope || 0) - (completed || 0)),
+          };
+        });
+        const last = daily[daily.length - 1];
+        const endedWith = last ? last.scope : null;
+        const startedWith = daily[0] ? daily[0].scope : null;
+        return { daily, sprintStart: start.toISOString(), sprintEnd: end.toISOString(), startedWith, endedWith, source: 'api' };
+      }
+    }
+  } catch (e) {
+    debugLog('Burndown: scopechangeburndownchart failed, reconstructing from issues', e?.message);
+  }
+
+  return reconstructBurndownFromIssues(sprint, start, end, projectKey);
+}
+
+/** Reconstruct daily scope + completed from issue resolution dates and sprint changelog. */
+async function reconstructBurndownFromIssues(sprint, start, end, projectKey) {
+  const tz = getTz();
+  const sprintId = sprint.id;
+  const scopeReport = await getSprintReportScope(sprintId);
+  if (!scopeReport) return null;
+  const { startedWith, endedWith: reportEndedWith } = scopeReport;
+
+  const jql = projectKey
+    ? `project = "${projectKey}" AND sprint = ${sprintId} AND status in (Done, "Won't Do")`
+    : `sprint = ${sprintId} AND status in (Done, "Won't Do")`;
+  let completedByDate = [];
+  try {
+    const searchRes = await jiraClient.post('/rest/api/3/search/jql', {
+      jql,
+      maxResults: 100,
+      fields: ['resolutiondate'],
+    });
+    const issues = searchRes.data?.issues || [];
+    completedByDate = issues
+      .map((i) => {
+        const rd = i.fields?.resolutiondate;
+        return rd ? { key: i.key, resolutionDate: moment.tz(rd, tz) } : null;
+      })
+      .filter(Boolean);
+  } catch (e) {
+    debugError('Burndown: completed issues search failed', e?.message);
+    return null;
+  }
+
+  const { addedKeys, puntedKeys } = await getAddedAndPuntedKeys(sprintId);
+  const addedDates = await getSprintChangeDates(jiraClient, addedKeys, sprint, 'added');
+  const removedDates = await getSprintChangeDates(jiraClient, puntedKeys, sprint, 'removed');
+
+  const days = [];
+  const cursor = start.clone();
+  while (cursor.isSameOrBefore(end, 'day')) {
+    const dayEnd = cursor.clone().endOf('day');
+    const scope = startedWith
+      + (addedKeys.filter((k) => (addedDates.get(k) && moment(addedDates.get(k)).isSameOrBefore(dayEnd))).length)
+      - (puntedKeys.filter((k) => (removedDates.get(k) && moment(removedDates.get(k)).isSameOrBefore(dayEnd))).length);
+    const completed = completedByDate.filter((r) => r.resolutionDate.isSameOrBefore(dayEnd)).length;
+    days.push({
+      dayIndex: days.length,
+      date: cursor.format('YYYY-MM-DD'),
+      label: cursor.format('M/D'),
+      scope: Math.max(0, scope),
+      completed,
+      remaining: Math.max(0, Math.max(0, scope) - completed),
+    });
+    cursor.add(1, 'day');
+  }
+
+  // Use sprint report endedWith for last day so scope matches creep (56 + added - removed = 66)
+  const endedWith = reportEndedWith != null ? reportEndedWith : (days.length ? days[days.length - 1].scope : startedWith);
+  if (days.length && reportEndedWith != null) {
+    days[days.length - 1].scope = reportEndedWith;
+    days[days.length - 1].remaining = Math.max(0, reportEndedWith - (days[days.length - 1].completed || 0));
+  }
+
+  return {
+    daily: days,
+    sprintStart: start.toISOString(),
+    sprintEnd: end.toISOString(),
+    startedWith,
+    endedWith,
+    source: 'reconstructed',
+  };
+}
+
+/** Returns { startedWith, endedWith } from sprint report (ticket counts). */
+async function getSprintReportScope(sprintId) {
+  try {
+    const url = `/rest/greenhopper/1.0/rapid/charts/sprintreport?rapidViewId=${BOARD_ID}&sprintId=${sprintId}`;
+    const res = await jiraClient.get(url, { timeout: 8000, validateStatus: (s) => s === 200 });
+    const raw = res.data?.contents ?? res.data;
+    const completedList = Array.isArray(raw?.completedIssues) ? raw.completedIssues : [];
+    const incompleteList = Array.isArray(raw?.incompletedIssues) ? raw.incompletedIssues : (Array.isArray(raw?.issuesNotCompletedInCurrentSprint) ? raw.issuesNotCompletedInCurrentSprint : []);
+    const punted = Array.isArray(raw?.puntedIssues) ? raw.puntedIssues : [];
+    const addedMap = raw?.issueKeysAddedDuringSprint && typeof raw.issueKeysAddedDuringSprint === 'object' ? raw.issueKeysAddedDuringSprint : {};
+    const addedKeys = Array.isArray(addedMap) ? addedMap : Object.keys(addedMap || {});
+    const addedKeySet = new Set(addedKeys.map((k) => (typeof k === 'object' && k && k.key != null) ? k.key : String(k)));
+    const endedWith = completedList.length + incompleteList.length;
+    const addedCount = addedKeySet.size;
+    const removedCount = punted.length;
+    const startedWith = Math.max(0, endedWith - addedCount + removedCount);
+    return { startedWith, endedWith };
+  } catch (e) {
+    debugError('Burndown: sprint report failed', e?.message);
+    return null;
+  }
+}
+
+async function getAddedAndPuntedKeys(sprintId) {
+  try {
+    const url = `/rest/greenhopper/1.0/rapid/charts/sprintreport?rapidViewId=${BOARD_ID}&sprintId=${sprintId}`;
+    const res = await jiraClient.get(url, { timeout: 8000, validateStatus: (s) => s === 200 });
+    const raw = res.data?.contents ?? res.data;
+    const addedMap = raw?.issueKeysAddedDuringSprint && typeof raw.issueKeysAddedDuringSprint === 'object' ? raw.issueKeysAddedDuringSprint : {};
+    const addedKeys = (Array.isArray(addedMap) ? addedMap : Object.keys(addedMap || {})).map((k) => (typeof k === 'object' && k && k.key != null) ? k.key : String(k));
+    const punted = Array.isArray(raw?.puntedIssues) ? raw.puntedIssues : [];
+    const puntedKeys = punted.map((i) => (i.key ?? i.id ?? '').toString()).filter(Boolean);
+    return { addedKeys, puntedKeys };
+  } catch (e) {
+    return { addedKeys: [], puntedKeys: [] };
+  }
+}
+
+async function getSprintChangeDates(jiraClient, issueKeys, sprint, mode) {
+  const map = new Map();
+  const sprintId = sprint?.id;
+  const sprintIdStr = sprintId != null ? String(sprintId) : '';
+  const sprintName = (sprint?.name || '').toString();
+  const hasSprint = (s) => {
+    if (!s || typeof s !== 'string') return false;
+    if (sprintIdStr && s.includes(sprintIdStr)) return true;
+    if (sprintName && s.includes(sprintName)) return true;
+    return false;
+  };
+  for (const key of issueKeys.slice(0, 50)) {
+    try {
+      const r = await jiraClient.get(`/rest/api/3/issue/${key}/changelog`, { params: { maxResults: 100 } });
+      const values = r.data?.values || [];
+      const sorted = [...values].sort((a, b) => new Date(a.created) - new Date(b.created));
+      for (const h of sorted) {
+        for (const item of h.items || []) {
+          const f = (item.field || '').toLowerCase();
+          if (f !== 'sprint' && f !== 'sprints') continue;
+          const from = (item.fromString || '').toString();
+          const to = (item.toString || '').toString();
+          if (mode === 'added' && hasSprint(to) && !hasSprint(from)) {
+            map.set(key, h.created);
+            break;
+          }
+          if (mode === 'removed' && hasSprint(from) && !hasSprint(to)) {
+            map.set(key, h.created);
+            break;
+          }
+        }
+      }
+    } catch (_) {}
+  }
+  return map;
+}
+
 /** One-line takeaway for creep (scope + completion). */
 function buildCreepTakeaway(creep) {
   if (!creep || creep.endedWith == null) return null;
@@ -723,7 +913,7 @@ router.get('/retro', async (req, res) => {
     if (!sprint) {
       return res.status(503).send('No closed sprint found for retro.');
     }
-    const [done, incomplete, backlog, highPriority, creep, sweat, load, pr, stuck] = await Promise.all([
+    const [done, incomplete, backlog, highPriority, creep, sweat, load, pr, stuck, burnupChart] = await Promise.all([
       getDoneData(projectKey, sprint),
       getIncompleteData(projectKey, sprint),
       getBacklogData(projectKey),
@@ -733,6 +923,7 @@ router.get('/retro', async (req, res) => {
       getLoadData(projectKey, sprint),
       getPRSummary(),
       getStuckData(projectKey, sprint),
+      getBurndownData(sprint, projectKey),
     ]);
 
     const digest = {
@@ -748,6 +939,7 @@ router.get('/retro', async (req, res) => {
       load,
       pr,
       stuck: stuck?.stuck ?? [],
+      burnupChart: burnupChart || null,
       prOpenDaysThreshold,
       coachingSweatGapPercent: sweatGapPercent,
       retroNotes: [],

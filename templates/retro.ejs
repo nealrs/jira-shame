@@ -19,30 +19,89 @@
         </ul>
       <% } %>
       <% if (digest.creep) { %>
-        <% if (digest.creepTakeaway) { %>
-          <p class="digest-stats digest-stats-padded creep-takeaway"><%= digest.creepTakeaway %></p>
+        <div class="retro-creep-layout">
+          <div class="retro-creep-stats">
+            <% if (digest.creepTakeaway) { %>
+              <p class="digest-stats creep-takeaway"><%= digest.creepTakeaway %></p>
+            <% } %>
+            <dl class="digest-scope-stats">
+              <dt>Started with</dt><dd><%= digest.creep.startedWith %></dd>
+              <dt>Ended with</dt><dd><%= digest.creep.endedWith %></dd>
+              <dt>Creep (net)</dt><dd><%= digest.creep.creepNet >= 0 ? '+' : '' %><%= digest.creep.creepNet %> (<%= digest.creep.addedCount %> added, <%= digest.creep.removedCount %> removed)</dd>
+              <dt>% complete (of ended)</dt><dd><%= digest.creep.pctCompleteEnded %>%</dd>
+              <dt>% complete (of started)</dt><dd><%= digest.creep.pctCompleteStarted %>%</dd>
+            </dl>
+            <% if (digest.burnupChart && digest.burnupChart.daily && digest.burnupChart.daily.length > 0) { %>
+              <% const bd = digest.burnupChart; const daily = bd.daily; %>
+              <p class="creep-bar-summary retro-creep-summary">Started with <strong><%= bd.startedWith != null ? bd.startedWith : daily[0].scope %></strong> tickets; ended with <strong><%= bd.endedWith != null ? bd.endedWith : daily[daily.length - 1].scope %></strong> in scope (creep). <strong><%= (typeof digest.creep !== 'undefined' && digest.creep && digest.creep.completed != null) ? digest.creep.completed : daily[daily.length - 1].completed %></strong> completed by end of sprint.<% if (bd.source === 'reconstructed') { %> (Chart built from resolution dates and sprint changes.)<% } %></p>
+            <% } %>
+          </div>
+          <% if (digest.burnupChart && digest.burnupChart.daily && digest.burnupChart.daily.length > 0) { %>
+          <div class="retro-creep-chart burnup-chart-wrap">
+            <p class="creep-bar-label">Sprint Progress</p>
+          <% const bd = digest.burnupChart; const daily = bd.daily; const lastIdx = daily.length - 1; const maxScope = Math.max(...daily.map(d => d.scope), 1); const maxCompleted = Math.max(...daily.map(d => d.completed), 1); const maxRemaining = Math.max(...daily.map(d => (d.remaining != null ? d.remaining : Math.max(0, (d.scope || 0) - (d.completed || 0)))), 0); const maxYRaw = Math.max(maxScope, maxCompleted, maxRemaining, 1); const maxY = Math.ceil(maxYRaw / 5) * 5; const tickStep = 5; const numTicks = maxY / tickStep; const w = 720; const h = 300; const pad = { t: 24, r: 24, b: 32, l: 40 }; const x0 = pad.l; const x1 = w - pad.r; const y0 = pad.t; const y1 = h - pad.b; %>
+          <svg class="burnup-svg" viewBox="0 0 <%= w %> <%= h %>" xmlns="http://www.w3.org/2000/svg" aria-label="Burnup and burndown: scope, completed, and remaining tickets by day">
+            <defs>
+              <linearGradient id="burnup-scope-fill" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="#1e5f74" stop-opacity="0.35"/>
+                <stop offset="100%" stop-color="#1e5f74" stop-opacity="0.06"/>
+              </linearGradient>
+              <linearGradient id="burnup-done-fill" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="#047857" stop-opacity="0.4"/>
+                <stop offset="100%" stop-color="#047857" stop-opacity="0.08"/>
+              </linearGradient>
+            </defs>
+            <g class="burnup-grid">
+              <% for (let i = 0; i <= numTicks; i++) { const y = y0 + (y1 - y0) * (i / numTicks); %>
+              <line x1="<%= x0 %>" y1="<%= y %>" x2="<%= x1 %>" y2="<%= y %>" stroke="var(--border, #EBECF0)" stroke-dasharray="4 2" stroke-width="0.5"/>
+              <% } %>
+              <% daily.forEach((d, i) => { if (i === 0 || i === daily.length - 1) { const x = lastIdx > 0 ? x0 + (i / lastIdx) * (x1 - x0) : x0; %>
+              <line x1="<%= x %>" y1="<%= y0 %>" x2="<%= x %>" y2="<%= y1 %>" stroke="var(--border, #EBECF0)" stroke-dasharray="4 2" stroke-width="0.5"/>
+              <% } }); %>
+            </g>
+            <g class="burnup-scope">
+              <% const scopePath = daily.map((d, i) => (i === 0 ? 'M' : 'L') + ' ' + (lastIdx > 0 ? x0 + (i / lastIdx) * (x1 - x0) : x0) + ' ' + (y1 - (d.scope / maxY) * (y1 - y0))).join(' '); %>
+              <path d="<%= scopePath %> L <%= x1 %> <%= y1 %> L <%= x0 %> <%= y1 %> Z" fill="url(#burnup-scope-fill)" stroke="none"/>
+              <path d="<%= scopePath %>" fill="none" stroke="#1e5f74" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </g>
+            <g class="burnup-completed">
+              <% const donePath = daily.map((d, i) => (i === 0 ? 'M' : 'L') + ' ' + (lastIdx > 0 ? x0 + (i / lastIdx) * (x1 - x0) : x0) + ' ' + (y1 - (d.completed / maxY) * (y1 - y0))).join(' '); %>
+              <path d="<%= donePath %> L <%= x1 %> <%= y1 %> L <%= x0 %> <%= y1 %> Z" fill="url(#burnup-done-fill)" stroke="none"/>
+              <path d="<%= donePath %>" fill="none" stroke="#047857" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </g>
+            <g class="burnup-burndown">
+              <% const remainingPath = daily.map((d, i) => { const rem = d.remaining != null ? d.remaining : Math.max(0, (d.scope || 0) - (d.completed || 0)); return (i === 0 ? 'M' : 'L') + ' ' + (lastIdx > 0 ? x0 + (i / lastIdx) * (x1 - x0) : x0) + ' ' + (y1 - (rem / maxY) * (y1 - y0)); }).join(' '); %>
+              <path d="<%= remainingPath %>" fill="none" stroke="#b91c1c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="5 4"/>
+            </g>
+            <g class="burnup-labels">
+              <text x="<%= x0 + (x1 - x0) / 2 %>" y="<%= h - 6 %>" text-anchor="middle" class="burnup-axis-label">Day</text>
+              <% for (let i = 0; i <= numTicks; i++) { const y = y0 + (y1 - y0) * (i / numTicks); const val = maxY - i * tickStep; %>
+              <text x="<%= x0 - 8 %>" y="<%= y + 4 %>" text-anchor="end" class="burnup-axis-label burnup-y-tick"><%= val %></text>
+              <% } %>
+              <% daily.forEach((d, i) => { if (i === 0 || i === daily.length - 1 || daily.length <= 8) { const x = lastIdx > 0 ? x0 + (i / lastIdx) * (x1 - x0) : x0; %>
+              <text x="<%= x %>" y="<%= y1 + 12 %>" text-anchor="middle" class="burnup-tick-label"><%= d.label || d.date %></text>
+              <% } }); %>
+            </g>
+            <g class="burnup-points">
+              <% const dayWidth = lastIdx > 0 ? Math.max((x1 - x0) / daily.length, 8) : 20; daily.forEach((d, i) => { const cx = lastIdx > 0 ? x0 + (i / lastIdx) * (x1 - x0) : x0; const scopeY = y1 - (d.scope / maxY) * (y1 - y0); const completedY = y1 - (d.completed / maxY) * (y1 - y0); const rem = d.remaining != null ? d.remaining : Math.max(0, (d.scope || 0) - (d.completed || 0)); const remainingY = y1 - (rem / maxY) * (y1 - y0); const tip = (d.label || d.date) + ': Scope ' + d.scope + ', Completed ' + d.completed + ', Remaining ' + rem; %>
+              <g class="burnup-day-hover" data-day="<%= (d.label || d.date).toString().replace(/"/g, '&quot;') %>" data-scope="<%= d.scope %>" data-completed="<%= d.completed %>" data-remaining="<%= rem %>">
+                <title><%= tip %></title>
+                <rect class="burnup-day-hit" x="<%= cx - dayWidth / 2 %>" y="<%= y0 %>" width="<%= dayWidth %>" height="<%= y1 - y0 %>" fill="transparent" aria-hidden="true"/>
+                <circle class="burnup-dot burnup-dot-scope" cx="<%= cx %>" cy="<%= scopeY %>" r="3.5" fill="#1e5f74" stroke="#fff" stroke-width="1"/>
+                <circle class="burnup-dot burnup-dot-completed" cx="<%= cx %>" cy="<%= completedY %>" r="3.5" fill="#047857" stroke="#fff" stroke-width="1"/>
+                <circle class="burnup-dot burnup-dot-remaining" cx="<%= cx %>" cy="<%= remainingY %>" r="3.5" fill="#b91c1c" stroke="#fff" stroke-width="1"/>
+              </g>
+              <% }); %>
+            </g>
+          </svg>
+          <div class="burnup-tooltip" id="burnup-tooltip" role="tooltip" aria-hidden="true"></div>
+          <div class="burnup-legend" role="list" aria-label="Chart legend">
+            <span class="burnup-legend-item"><span class="burnup-legend-swatch burnup-legend-scope" aria-hidden="true"></span>Scope</span>
+            <span class="burnup-legend-item"><span class="burnup-legend-swatch burnup-legend-completed" aria-hidden="true"></span>Completed</span>
+            <span class="burnup-legend-item"><span class="burnup-legend-swatch burnup-legend-remaining" aria-hidden="true"></span>Remaining</span>
+          </div>
+          </div>
         <% } %>
-        <dl class="digest-scope-stats">
-          <dt>Started with</dt><dd><%= digest.creep.startedWith %></dd>
-          <dt>Ended with</dt><dd><%= digest.creep.endedWith %></dd>
-          <dt>Creep (net)</dt><dd><%= digest.creep.creepNet >= 0 ? '+' : '' %><%= digest.creep.creepNet %> (<%= digest.creep.addedCount %> added, <%= digest.creep.removedCount %> removed)</dd>
-          <dt>% complete (of ended)</dt><dd><%= digest.creep.pctCompleteEnded %>%</dd>
-          <dt>% complete (of started)</dt><dd><%= digest.creep.pctCompleteStarted %>%</dd>
-        </dl>
-        <div class="creep-visual">
-          <% const scopeTotal = digest.creep.endedWith || 1; %>
-          <div class="creep-bar" title="Committed (started) vs added; completed vs incomplete">
-            <div class="creep-segment creep-committed-done" style="width: <%= scopeTotal ? (digest.creep.completedFromStart / scopeTotal * 100) : 0 %>%;" title="Sprint Start, completed: <%= digest.creep.completedFromStart %>"></div>
-            <div class="creep-segment creep-committed-incomplete" style="width: <%= scopeTotal ? (digest.creep.incompleteFromStart / scopeTotal * 100) : 0 %>%;" title="Sprint Start, incomplete: <%= digest.creep.incompleteFromStart %>"></div>
-            <div class="creep-segment creep-added-done" style="width: <%= scopeTotal ? (digest.creep.completedFromAdded / scopeTotal * 100) : 0 %>%;" title="Creep, completed: <%= digest.creep.completedFromAdded %>"></div>
-            <div class="creep-segment creep-added-incomplete" style="width: <%= scopeTotal ? (digest.creep.incompleteFromAdded / scopeTotal * 100) : 0 %>%;" title="Creep, incomplete: <%= digest.creep.incompleteFromAdded %>"></div>
-          </div>
-          <div class="creep-legend">
-            <span class="creep-legend-item"><span class="creep-dot committed-done"></span> Sprint Start, done: <strong><%= digest.creep.completedFromStart %></strong></span>
-            <span class="creep-legend-item"><span class="creep-dot committed-incomplete"></span> Sprint Start, incomplete: <strong><%= digest.creep.incompleteFromStart %></strong></span>
-            <span class="creep-legend-item"><span class="creep-dot added-done"></span> Creep, done: <strong><%= digest.creep.completedFromAdded %></strong></span>
-            <span class="creep-legend-item"><span class="creep-dot added-incomplete"></span> Creep, incomplete: <strong><%= digest.creep.incompleteFromAdded %></strong></span>
-          </div>
         </div>
       <% } %>
     </div>

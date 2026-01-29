@@ -409,10 +409,38 @@
   margin: 0;
 }
 
-/* Scope / velocity bar */
+/* Scope / velocity: two-bar view (committed vs creep) */
 .creep-visual {
   margin: 12px 0;
 }
+
+.creep-two-bars .creep-bar-row {
+  margin-bottom: 16px;
+}
+
+.creep-two-bars .creep-bar-row:last-of-type {
+  margin-bottom: 0;
+}
+
+.creep-bar-label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-muted, #6B778C);
+  margin-bottom: 6px;
+}
+
+.creep-bar-summary {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--text-muted, #6B778C);
+  margin-top: 6px;
+}
+
+.creep-bar-summary strong {
+  color: var(--text-primary, #172B4D);
+}
+
 .creep-bar {
   display: flex;
   width: 100%;
@@ -421,8 +449,15 @@
   overflow: hidden;
   background: var(--border, #EBECF0);
 }
+
+.creep-bar-empty .creep-bar-empty-fill {
+  background: var(--border, #EBECF0);
+  min-width: 0;
+}
+
 .creep-segment {
   transition: width 0.2s ease;
+  min-width: 0;
 }
 /* Completes: Sprint Start done, Creep done (darker for contrast) */
 .creep-segment.creep-completed,
@@ -448,6 +483,12 @@
   font-size: 0.9rem;
   color: var(--text-muted, #6B778C);
 }
+
+.creep-legend-two-bars {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border, #EBECF0);
+}
 .creep-legend-item {
   display: flex;
   align-items: center;
@@ -471,6 +512,158 @@
 }
 .creep-dot.added-incomplete {
   background: #d15b73;
+}
+
+/* Two-column layout: sprint stats (left) + burnup chart (right) */
+.retro-creep-layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px 32px;
+  align-items: flex-start;
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border, #EBECF0);
+}
+
+.retro-creep-stats {
+  flex: 0 0 620px;
+  min-width: 590px;
+}
+
+.retro-creep-stats .digest-scope-stats {
+  margin: 0;
+}
+
+.retro-creep-stats .creep-takeaway {
+  margin-bottom: 12px;
+}
+
+.retro-creep-summary {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border, #EBECF0);
+  font-size: 0.8125rem;
+}
+
+.retro-creep-chart {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .retro-creep-stats {
+    flex: 1 1 100%;
+  }
+  .retro-creep-chart {
+    flex: 1 1 100%;
+  }
+}
+
+/* Burnup chart (scope + completed over sprint days) */
+.burnup-chart-wrap {
+  position: relative;
+  padding-top: 0;
+}
+
+.retro-creep-chart.burnup-chart-wrap {
+  margin-top: 0;
+  border-top: none;
+}
+
+.burnup-tooltip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 8px 12px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary, #172B4D);
+  background: var(--bg-primary, #fff);
+  border: 1px solid var(--border, #DFE1E6);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  pointer-events: none;
+  z-index: 10;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.1s ease, visibility 0.1s ease;
+  white-space: nowrap;
+}
+
+.burnup-tooltip.burnup-tooltip--visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.burnup-dot {
+  pointer-events: none;
+}
+
+.burnup-day-hit {
+  cursor: crosshair;
+}
+
+.burnup-svg {
+  display: block;
+  max-width: 720px;
+  width: 100%;
+  height: auto;
+  font-size: 11px;
+  color: var(--text-muted, #6B778C);
+}
+
+.burnup-axis-label,
+.burnup-tick-label,
+.burnup-legend-text {
+  fill: var(--text-muted, #6B778C);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.burnup-y-tick {
+  font-size: 9px;
+}
+
+/* Legend below plot, horizontal, left-aligned */
+.burnup-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 20px 28px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border, #EBECF0);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-muted, #6B778C);
+}
+
+.burnup-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.burnup-legend-swatch {
+  display: inline-block;
+  width: 28px;
+  height: 0;
+  border-bottom-width: 2.5px;
+  border-bottom-style: solid;
+}
+
+.burnup-legend-scope {
+  border-bottom-color: #1e5f74;
+}
+
+.burnup-legend-completed {
+  border-bottom-color: #047857;
+}
+
+.burnup-legend-remaining {
+  border-bottom-style: dashed;
+  border-bottom-color: #b91c1c;
 }
 
 .digest-pr-bullets {
@@ -676,6 +869,15 @@
   .creep-dot {
     width: 8px !important;
     height: 8px !important;
+  }
+
+  .burnup-chart-wrap {
+    margin-top: 12pt !important;
+    padding-top: 10pt !important;
+  }
+
+  .burnup-svg {
+    max-width: 100% !important;
   }
 
   .digest-empty {

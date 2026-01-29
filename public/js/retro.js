@@ -38,4 +38,32 @@
   });
 
   // Table sorting for all digest tables (including stuck) is handled by table-sort.js
+
+  // Burnup chart: hover tooltip showing scope, completed, remaining for that day
+  var tooltipEl = document.getElementById('burnup-tooltip');
+  var chartWrap = document.querySelector('.burnup-chart-wrap');
+  if (tooltipEl && chartWrap) {
+    chartWrap.querySelectorAll('.burnup-day-hover').forEach(function (g) {
+      g.addEventListener('mouseenter', function () {
+        var day = g.getAttribute('data-day') || '';
+        var scope = g.getAttribute('data-scope') || '0';
+        var completed = g.getAttribute('data-completed') || '0';
+        var remaining = g.getAttribute('data-remaining') || '0';
+        tooltipEl.textContent = day + ': Scope ' + scope + ', Completed ' + completed + ', Remaining ' + remaining;
+        tooltipEl.setAttribute('aria-hidden', 'false');
+        tooltipEl.classList.add('burnup-tooltip--visible');
+      });
+      g.addEventListener('mousemove', function (e) {
+        var wrap = chartWrap.getBoundingClientRect();
+        var x = e.clientX - wrap.left;
+        var y = e.clientY - wrap.top;
+        tooltipEl.style.left = (x + 12) + 'px';
+        tooltipEl.style.top = (y - 8) + 'px';
+      });
+      g.addEventListener('mouseleave', function () {
+        tooltipEl.classList.remove('burnup-tooltip--visible');
+        tooltipEl.setAttribute('aria-hidden', 'true');
+      });
+    });
+  }
 })();
